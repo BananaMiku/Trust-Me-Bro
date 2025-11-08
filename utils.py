@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+import re
+import os
 import requests
 server_url = "http://127.0.0.1:8000"
 
@@ -9,6 +11,18 @@ INTERNAL_REQUEST_PATH = "/internal"
 GET_MODE_PATH = "/mode" 
 SET_MODE_PATH = "/switch_mode" 
 
+base_dir = os.path.dirname(os.path.abspath(__file__))
+PORT_FILE = os.path.join(base_dir, "port_map.txt")
+
+def get_port_no(process_name):
+    with open(PORT_FILE, 'r') as file:
+        for line in file.readlines():
+            matches = re.findall(r'([a-zA-z]+): ([0-9]+)', line)
+            if matches[0][0] == process_name:
+                return int(matches[0][1])
+    return None 
+
+load_url = "http://127.0.0.1:{}".format(get_port_no("load"))
 class PromptRequest(BaseModel):
     uuid: str
     prompt: str
@@ -21,7 +35,7 @@ class InternalRequest(BaseModel):
 
 def send_prompt_request(prompt_request):
     to_send = prompt_request_to_json(prompt_request)
-    response = requests.post("{}{}".format(server_url, PROMPT_REQUEST_PATH), json=to_send)
+    response = requests.post("{}{}".format(load_url, PROMPT_REQUEST_PATH), json=to_send)
     print(response.status_code)
     print(response.json())
     return response.json()

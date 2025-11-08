@@ -4,10 +4,11 @@ import requests
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import MODELS, MODES, PromptRequest, InternalRequest
+from utils import MODELS, MODES, PromptRequest, InternalRequest, get_port_no
 
 app = FastAPI()
 app.state.response_mode = "normal"
+app.state.port = get_port_no("load")
 
 @app.post("/submit_prompt")
 def submit(data: PromptRequest, background_tasks: BackgroundTasks, request: Request):
