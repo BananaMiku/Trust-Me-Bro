@@ -2,6 +2,8 @@ import subprocess
 import asyncio
 import structlog
 import os
+import random
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -9,7 +11,7 @@ class UUID(BaseModel):
     userID: str
     model: str
 
-class SMIData(BaseModel):
+class SMIData(BaseModel): # TODO double check this
     gpuUtilization: float
     vramUsage: float
     powerDraw : float
@@ -17,8 +19,42 @@ class SMIData(BaseModel):
 
 tmb = FastAPI()
 log = structlog.get_logger()
+reservoir_size = 10
 
 pendingRequests: dict[str: (asyncio.Event, bool)] = {}
+
+# could def be optimized lol
+def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
+    filePath = f"{model}_storage.csv"
+
+    # one data as row
+    row = pd.DataFrame([{
+        "model": model,
+        "gpuUtilization": gpuUtilization,
+        "vramUsage": vramUsage,
+        "powerDraw": powerDraw,
+    }])
+
+    # read storage file, create one if none exists
+    if os.path.exists(filePath) and os.path.getsize(filePath) > 0:
+        try:
+            df = pd.read_csv(filePath)
+        except pd.errors.EmptyDataError:
+            # exists exists but is blank
+            df = pd.DataFrame(columns=row.columns)
+    else:
+        df = pd.DataFrame(columns=row.columns)
+
+
+    # reservoir sampling
+    if len(df) >= reservoir_size:
+        # replace a random row
+        idx = random.randrange(len(df))
+        df.iloc[idx] = row.iloc[0]
+    else:
+        df = pd.concat([df, row], ignore_index=True)
+
+    df.to_csv(filePath, index=False)
 
 @tmb.post("/clientRequest")
 async def clientRequest(uuid: UUID):
@@ -43,8 +79,9 @@ async def clientRequest(uuid: UUID):
     finally:
         pendingRequests.pop(id)
 
-@tmb.post("/incomingData")
-async def incomingData(smiData: SMIData):
+# incoming data from LLM server
+@tmb.post("/metrics")
+async def metrics(smiData: SMIData):
     id = smiData.uuid.userID
     if id not in pendingRequests:
         # this technically should not happen?
@@ -66,10 +103,10 @@ async def incomingData(smiData: SMIData):
     
     # build arguments for c file
     # convert to str for subprocess.run
+    reservoir_sampling(smiData.uuid.model, smiData.gpuUtilization, smiData.vramUsage, smiData.powerDraw)
+    
     arguments = [
-        str(smiData.gpuUtilization),
-        str(smiData.vramUsage),
-        str(smiData.powerDraw),
+        str(smiData.uuid.model + "_storage.csv")
     ]
     
     # execute c file

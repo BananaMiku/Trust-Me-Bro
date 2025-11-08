@@ -18,7 +18,7 @@ def test_client_request_timeout():
     assert response.status_code == 408
 
 def test_incoming_data_without_waiter():
-    """If /incomingData is called with no matching waiter, return error message."""
+    """If /metrics is called with no matching waiter, return error message."""
     params = {
         "gpuUtilization": 75.5,
         "vramUsage": 60.1,
@@ -28,7 +28,7 @@ def test_incoming_data_without_waiter():
             "model": "GPT-5",
         },
     }
-    response = client.post("/incomingData", json=params)
+    response = client.post("/metrics", json=params)
     assert "IDK" in response.text
 
 @pytest.mark.asyncio
@@ -50,7 +50,7 @@ async def test_client_request_success():
     await asyncio.sleep(0.5)
 
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        res_incoming = await ac.post("/incomingData", json=smiData)
+        res_incoming = await ac.post("/metrics", json=smiData)
         assert res_incoming.status_code == 200
 
     res_client = await client_task
