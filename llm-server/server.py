@@ -8,20 +8,6 @@ from utils import MODELS, PromptRequest, InternalRequest
 
 app = FastAPI()
 
-<<<<<<< HEAD
-MODELS = ["gpt5", "gpt4", "gpt3"]
-
-class PromptRequest(BaseModel):
-    uuid: int
-    prompt: str
-    model: str
-
-class MetricsPayload(BaseModel):
-    query_uuid: str
-    metrics: list
-
-=======
->>>>>>> 2521504 (cleaned client server stuff)
 @app.post("/submit/")
 def submit(data: PromptRequest, background_tasks: BackgroundTasks):
     #asserts the request is valid
