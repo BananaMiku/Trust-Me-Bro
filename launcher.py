@@ -9,6 +9,9 @@ if __name__ == "__main__":
     match args.server:
         case "load":
             uvicorn.run("llm-server.server:app", host="0.0.0.0", port=get_port_no("load"), reload=True)
+
+        case "tmb":
+            uvicorn.run("tmb-server.tmb:tmb", host="0.0.0.0", port=get_port_no("tmb"), reload=True)
         case _:
             print("not a valid program name")
 
