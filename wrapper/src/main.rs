@@ -15,10 +15,15 @@ use std::sync::Arc;
 use tokio::sync::oneshot;
 use tokio::time::{Duration, sleep};
 
+use hyper;
+use std::error::Error;                  
+use tokio;                             
+
 #[derive(Clone)]
 struct AppState {
     models: Arc<Vec<(String, u16)>>,
 }
+
 
 #[tokio::main]
 async fn main() {
@@ -87,17 +92,18 @@ async fn handle_prompt_request(data: PushData, state: AppState) {
         }
     }
 
-    let model_request = tokio::spawn(call_model(data.original, port_no));
+    let model_request = tokio::spawn(async move {call_model(data.original, port_no)});
     let nvidia_thread = tokio::spawn(async move { nvidia(stop_rx, port_no) });
 
     //end when we get network
-    let _ = model_request.await;
+    let res = model_request.await;
     let _ = stop_tx.send(()); //kills nvidia thread
     let _ = nvidia_thread.await;
 }
 
 async fn call_model(original: String, model_port: u16) {
     let parsed: Prompt = serde_json::from_str(&original).expect("Invalid JSON");
+    let url = format!("http://127.0.0.1:{}", model_port);
 }
 
 async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, port: u16) {
