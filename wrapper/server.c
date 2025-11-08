@@ -14,6 +14,8 @@
 
 #define BUFFER_SIZE 104857600
 
+struct Model *models;
+
 int server_fd;
 void sighandle(int sig) {
   close(server_fd);
@@ -109,6 +111,9 @@ void *handle_client(void *arg) {
       exit(1);
     }
     body += 4;
+
+    printf("%s\n", buffer);
+    printf("%s\n", body);
     
     InternalRequest *req = parse_internal_request(body);
     
@@ -125,24 +130,38 @@ void *handle_client(void *arg) {
       exit(0);
     }
     
+    printf("hi5\n");
+    printf("%d, %ld\n", (int)((body - buffer)), strlen(buffer));
+    printf("%.*s\n", (int)((body - buffer)), buffer);
+    printf("hi\n");
+    printf("%ld\n", (long)req);
+    printf("hi\n");
+    printf("%s\n", req->original);
+    printf("hi\n");
     char* newreq;
-    sprintf(newreq, "%.*s%s", (int)((body - buffer)/4), buffer, req->original);
+    sprintf(newreq, "%.*s%s", (int)((body - buffer)/4+1), buffer, req->original);
 
     // start profiling before we make the request
+    printf("hi7\n");
+    fflush(stdout);
     pthread_t thread_id;
     int done = 0;
     struct PollNvidiaSmiArgs args = {
       .done = &done,
       .port = model->port,
     };
+    printf("hi15\n");
     pthread_create(&thread_id, NULL, poll_nvidia_smi, &args);
+    printf("hi16\n");
 
     
+    printf("hi8\n");
     char* res = make_request("localhost", model->port, newreq, buffer);
     done = 1;
     write(client_fd, res, strlen(res));
     close(client_fd);
 
+    printf("hi9\n");
     free(res);
     free(newreq);
   }
@@ -153,7 +172,9 @@ void *handle_client(void *arg) {
 }
 
 
-void serve(int port) {
+void serve(int port, struct Model* _models) {
+  models = _models;
+  printf("%ld\n", (long) models);
   struct sockaddr_in server_addr;
   
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {

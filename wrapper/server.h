@@ -1,7 +1,8 @@
 #ifndef SERVER_H_
 #define SERVER_H_
+#include "globals.h"
 
-void serve(int port);
+void serve(int port, struct Model* models);
 
 typedef struct {
     char* original; 

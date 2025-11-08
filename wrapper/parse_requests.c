@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <regex.h>
 
 // Helper to extract a string value from JSON by key
 static char* extract_json_string(const char* json, const char* key) {
@@ -28,41 +29,40 @@ static char* extract_json_string(const char* json, const char* key) {
 
 // Parse InternalRequest
 InternalRequest* parse_internal_request(const char* json_str) {
-    if (!json_str) return NULL;
 
-    InternalRequest* req = malloc(sizeof(InternalRequest));
-    if (!req) return NULL;
+    InternalRequest req;
 
-    // Extract "original" object
-    char* original_start = strstr(json_str, "\"original\"");
-    if (original_start) {
-        char* brace_start = strchr(original_start, '{');
-        char* brace_end = strchr(brace_start, '}');
-        size_t len = brace_end - brace_start + 1;
-        char* original_json = malloc(len + 1);
-        strncpy(original_json, brace_start, len);
-        original_json[len] = '\0';
+    regex_t uuid_rxp;
+    regex_t model_rxp;
+    regex_t original_rxp;
+    regmatch_t grouparray[1];
 
-        req->original = original_json;
-        free(original_json);
-    } else {
-        req->original = "";
+    if (
+        !regcomp(&uuid_rxp, "\"uuid\":[:space:]*\"(.*)\"", REG_EXTENDED)
+        || !regcomp(&model_rxp, "\"model\":[:space:]*\"(.*)\"", REG_EXTENDED)
+        || !regcomp(&original_rxp, "\"original\":[:space:]*\"(.*)\"", REG_EXTENDED)
+    ) {
+        perror("could not compile regex");
+        exit(1);
     }
 
-    // Parse top-level uuid and model
-    char* uuid = extract_json_string(json_str, "\"uuid\"");
-    char* model = extract_json_string(json_str, "\"model\"");
-
-    if (uuid) {
-        strncpy(req->uuid, uuid, sizeof(req->uuid));
-        free(uuid);
-    } else {
-        req->uuid[0] = '\0';
+    if (regexec(&uuid_rxp, json_str, 1, grouparray, 0) != 0) {
+        perror("failed to match for uuid");
+        exit(1);
     }
-
-    req->model = model;
-
-    return req;
+    req.uuid = grouparray[0].rm_eo;
+    if (regexec(&model_rxp, json_str, 1, grouparray, 0) != 0) {
+        perror("failed to match for model");
+        exit(1);
+    }
+    req.model = grouparray[0].rm_eo;
+    if (regexec(&original_rxp, json_str, 1, grouparray, 0) != 0) {
+        perror("failed to match for original");
+        exit(1);
+    }
+    req.original = grouparray[0].rm_eo;
+    
+    return &req;
 }
 
 

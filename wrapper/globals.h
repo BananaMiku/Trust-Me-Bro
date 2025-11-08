@@ -7,6 +7,4 @@ struct Model {
     struct Model *next;
 };
 
-extern struct Model *models;
-
 #endif
