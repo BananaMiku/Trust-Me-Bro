@@ -1,10 +1,12 @@
-use axum::{routing::post, Router, response::Json, extract::Json as ExtractJson};
-use serde_json::json;
-use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use axum::{Router, extract::Json as ExtractJson, response::Json, routing::post};
+use http::request::{Request, Response};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::net::SocketAddr;
+use std::process::Command;
 use tokio::sync::oneshot;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[tokio::main]
 async fn main() {
@@ -23,7 +25,6 @@ async fn main() {
     println!("Parsed models: {:?}", models);
 
     let app = Router::new().route("/", post(push_handler));
-    
 
     let port: u16 = port_no.parse().expect("Invalid port number");
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -40,7 +41,7 @@ async fn main() {
 struct PushData {
     original: String,
     uuid: String,
-    model: String
+    model: String,
 }
 
 async fn push_handler(ExtractJson(payload): ExtractJson<PushData>) -> Json<serde_json::Value> {
@@ -51,20 +52,21 @@ async fn push_handler(ExtractJson(payload): ExtractJson<PushData>) -> Json<serde
 async fn handle_prompt_request(data: PushData) {
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let task1 = tokio::spawn(call_model());
-    let nvidia_thread = tokio::spawn(async move {nvidia(stop_rx)});
+    let nvidia_thread = tokio::spawn(async move { nvidia(stop_rx) });
 
     //end when we get network
     let _ = task1.await;
     let _ = stop_tx.send(()); //kills nvidia thread
     let _ = nvidia_thread.await;
-
 }
 
-async fn call_model(){
-}
+async fn call_model() {}
 
-async fn nvidia(mut stop_rx : tokio::sync::oneshot::Receiver<()>) {
+async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>) {
     println!("started query for nvidia");
+    let mut cmd = Command::new("nvidia-smi");
+    cmd.arg("--query-gpu=uuid,name,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu");
+    cmd.arg("--format=csv,noheader,nounits");
     loop {
         tokio::select! {
             _ = &mut stop_rx => {
@@ -72,7 +74,13 @@ async fn nvidia(mut stop_rx : tokio::sync::oneshot::Receiver<()>) {
                 break;
             }
             _ = sleep(Duration::from_secs(1)) => {
-                println!("query nvidia");
+                let output = cmd.output().expect("unable to execute nvidia_smi");
+                let mut request = Request::builder()
+                    .method("POST")
+                    .uri("http://localhost:3833")
+                    .header("Content-type", "text/plain");
+
+                let response = send(request.body(String::from_utf8(output.stdout).unwrap()).unwrap());
             }
         }
     }
