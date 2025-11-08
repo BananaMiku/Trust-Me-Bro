@@ -8,7 +8,7 @@ By combining hardware-level attestation (TPM, IMA) with runtime profiling of GPU
 The result: end users, auditors, or partners can trust that “Model X” actually ran on the stated hardware — not a cheaper, spoofed, or downgraded model.
 
 __Motivation__
-Modern AI services rely on trust: users assume that an API call to “Model A” really uses that model. However, without transparency, a provider could silently serve cheaper or smaller models while charging for premium ones.
+Modern AI services rely on trust: users assume that an API call to “Model A” really uses that model. However, without transparency, a provider could silently serve cheaper or smaller models while charging for premium ones.
 This framework addresses that trust gap by providing cryptographic, runtime-verifiable proofs of inference integrity — forming the basis for “proof of inference authenticity.”
 
 __How It Works__

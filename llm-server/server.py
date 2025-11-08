@@ -10,6 +10,10 @@ class PromptRequest(BaseModel):
     prompt: str
     model: str
 
+class MetricsPayload(BaseModel):
+    query_uuid: str
+    metrics: list
+
 @app.post("/submit/")
 def submit(data: PromptRequest, background_tasks: BackgroundTasks):
     #asserts the request is valid
@@ -23,6 +27,12 @@ def submit(data: PromptRequest, background_tasks: BackgroundTasks):
     return {
         "status": "success",
     }
+
+@app.post("/metrics/")
+def receive_metrics(payload: MetricsPayload):
+    print("Received metrics for UUID:", payload.query_uuid)
+    print(payload.metrics)
+    return {"status": "success"}
 
 def handle_prompt_request(request):
     print("uuid: {}, model: {}, prompt: {}".format(request.uuid, request.model, request.prompt))
