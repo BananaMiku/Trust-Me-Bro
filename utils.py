@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 import re
 import os
+import json
 import requests
 server_url = "http://127.0.0.1:8000"
 
@@ -42,7 +43,7 @@ def send_prompt_request(prompt_request):
 
 def prompt_request_to_json(prompt_request):
     ret = {
-        "uuid": prompt_request.uuid,
+        "uuid": prompt_request.uuid, 
         "prompt": prompt_request.prompt,
         "model": prompt_request.model
     }
@@ -50,7 +51,7 @@ def prompt_request_to_json(prompt_request):
 
 def internal_request_to_json(internal_request):
     ret = {
-        "original": prompt_request_to_json(internal_request.original),
+        "original": json.dumps(prompt_request_to_json(internal_request.original)),
         "uuid": internal_request.uuid,
         "model": internal_request.model
     }
@@ -58,10 +59,13 @@ def internal_request_to_json(internal_request):
 
 def send_internal_request(internal_request):
     to_send = internal_request_to_json(internal_request) 
-    print(to_send)
-    wrapper_url = "http://127.0.0.1:{}/".format(get_port_no("wrapper"))
-    response = requests.post(wrapper_url, json=to_send) #TODO set path
-    return response.json()
+    wrapper_url = "http://127.0.0.1:{}/".format(3822)
+    print(wrapper_url)
+
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(wrapper_url, data=json.dumps(to_send), headers=headers)
+    print("sent, status code:", response.status_code)
+    print("response:", response.text)
 
 def get_mode(server_url):
     response = requests.get("{}{}".format(server_url, GET_MODE_PATH), json={})
