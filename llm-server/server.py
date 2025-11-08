@@ -50,11 +50,21 @@ def receive_metrics(payload: MetricsPayload):
     print("Received metrics for UUID:", payload.query_uuid)
     print(payload.metrics)
     return {"status": "success"}
+class PromptRequest(BaseModel):
+    uuid: str
+    prompt: str
+    model: str
+
+class InternalRequest(BaseModel):
+    original: PromptRequest
+    uuid: str
+    model: str
 
 def handle_prompt_request(prompt_request, request: Request):
+    internal_request = InternalRequest(original=prompt_request, uuid=prompt_request.uuid, model=prompt_request.model)
     match request.app.state.response_mode:
         case "skimp":
-            print("no gpt5 for u")
-        case _: 
-            print("uuid: {}, model: {}, prompt: {}".format(prompt_request.uuid, prompt_request.model, prompt_request.prompt))
+            send_internal_request(internal_request, server_url)
+        case _:
+            send_internal_request(internal_request, server_url)
 
