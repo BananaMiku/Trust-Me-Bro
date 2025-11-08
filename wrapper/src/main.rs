@@ -4,20 +4,16 @@ use axum::{
     response::Json,
     routing::post,
 };
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use regex::Regex;
 
-use std::sync::Arc;
 use std::net::SocketAddr;
 use std::process::Command;
+use std::sync::Arc;
 
 use tokio::sync::oneshot;
-use tokio::time::{sleep, Duration};
-
-// For sending HTTP requests
-use reqwest;
-
+use tokio::time::{Duration, sleep};
 
 #[derive(Clone)]
 struct AppState {
@@ -45,7 +41,9 @@ async fn main() {
         models: Arc::new(models),
     };
 
-    let app = Router::new() .route("/", post(push_handler)).with_state(state);
+    let app = Router::new()
+        .route("/", post(push_handler))
+        .with_state(state);
 
     let port: u16 = port_no.parse().expect("Invalid port number");
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -65,7 +63,6 @@ struct PushData {
     model: String,
 }
 
-
 #[derive(Debug, Deserialize)]
 struct Prompt {
     prompt: String,
@@ -73,7 +70,10 @@ struct Prompt {
     uuid: String,
 }
 
-async fn push_handler(State(state): State<AppState>, ExtractJson(payload): ExtractJson<PushData>) -> Json<serde_json::Value> {
+async fn push_handler(
+    State(state): State<AppState>,
+    ExtractJson(payload): ExtractJson<PushData>,
+) -> Json<serde_json::Value> {
     tokio::spawn(handle_prompt_request(payload, state)); //new thread so we can respond
     Json(json!({ "status": "success"}))
 }
@@ -85,10 +85,10 @@ async fn handle_prompt_request(data: PushData, state: AppState) {
         if model == &data.model {
             port_no = *port;
         }
-    } 
+    }
 
     let model_request = tokio::spawn(call_model(data.original, port_no));
-    let nvidia_thread = tokio::spawn(async move {nvidia(stop_rx)});
+    let nvidia_thread = tokio::spawn(async move { nvidia(stop_rx, port_no) });
 
     //end when we get network
     let _ = model_request.await;
@@ -96,15 +96,17 @@ async fn handle_prompt_request(data: PushData, state: AppState) {
     let _ = nvidia_thread.await;
 }
 
-async fn call_model(original: String, model_port: u16){
+async fn call_model(original: String, model_port: u16) {
     let parsed: Prompt = serde_json::from_str(&original).expect("Invalid JSON");
 }
 
-async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>) {
+async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, port: u16) {
     println!("started query for nvidia");
     let mut cmd = Command::new("nvidia-smi");
     cmd.arg("--query-gpu=uuid,name,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu");
     cmd.arg("--format=csv,noheader,nounits");
+
+    // let client = reqwest::blocking::Client::new();
     loop {
         tokio::select! {
             _ = &mut stop_rx => {
@@ -113,12 +115,8 @@ async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>) {
             }
             _ = sleep(Duration::from_secs(1)) => {
                 let output = cmd.output().expect("unable to execute nvidia_smi");
-                let mut request = Request::builder()
-                    .method("POST")
-                    .uri("http://localhost:3833")
-                    .header("Content-type", "text/plain");
-
-                let response = send(request.body(String::from_utf8(output.stdout).unwrap()).unwrap());
+                // let _resp = client.post("http://localhost:3833")
+                //     .body(String::from_utf8(output.stdout).unwrap());
             }
         }
     }
