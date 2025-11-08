@@ -4,6 +4,8 @@ use axum::{
     response::Json,
     routing::post,
 };
+use hyper::body::Bytes;
+use hyper::{Request, Uri};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -12,6 +14,8 @@ use std::net::SocketAddr;
 use std::process::Command;
 use std::sync::Arc;
 
+use hyper_util::rt::TokioIo;
+use tokio::net::TcpStream;
 use tokio::sync::oneshot;
 use tokio::time::{Duration, sleep};
 
@@ -108,11 +112,39 @@ async fn call_model(original: String, model_port: u16) {
 
 async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, port: u16) {
     println!("started query for nvidia");
-    let mut cmd = Command::new("nvidia-smi");
-    cmd.arg("--query-gpu=uuid,name,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu");
-    cmd.arg("--format=csv,noheader,nounits");
 
-    // let client = reqwest::blocking::Client::new();
+    let mut ss = Command::new("ss");
+    ss.arg("-lptn");
+    ss.arg(format!("'sport= :{}'", port));
+
+    // get pid
+    let output = ss.output().expect("couldn't find port");
+    let output_s = String::from_utf8(output.stdout).unwrap();
+    let re = Regex::new(r"pid=(\d+)").unwrap();
+    let pid = re
+        .captures_iter(&output_s)
+        .next()
+        .expect("no pid found")
+        .get(0)
+        .expect("no pid found")
+        .as_str();
+
+    let mut smi = Command::new("nvidia-smi");
+    smi.arg("--query-gpu=uuid,name,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu");
+    smi.arg("--format=csv,noheader,nounits");
+    smi.arg(format!("--query-compute-apps={}", pid));
+
+    let url = "http://localhost:3833".parse::<Uri>().unwrap();
+    let stream = TcpStream::connect("localhost:3833").await.unwrap();
+    let io = TokioIo::new(stream);
+
+    let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
+    tokio::task::spawn(async move {
+        if let Err(err) = conn.await {
+            println!("Connection failed: {:?}", err);
+        }
+    });
+
     loop {
         tokio::select! {
             _ = &mut stop_rx => {
@@ -120,7 +152,23 @@ async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, port: u16) {
                 break;
             }
             _ = sleep(Duration::from_secs(1)) => {
-                let output = cmd.output().expect("unable to execute nvidia_smi");
+                let smi_out = smi.output().expect("unable to execute nvidia_smi");
+
+                let authority = "http://localhost:3833".parse::<Uri>().unwrap().authority().unwrap().clone();
+
+                // Create an HTTP request with an empty body and a HOST header
+                let req = Request::builder()
+                    .uri(url.clone())
+                    .header(hyper::header::HOST, authority.as_str())
+                    .body(http_body_util::Full::new(Bytes::from("hi"))).unwrap();
+
+                // Await the response...
+                let res = sender.send_request(req).await.unwrap();
+
+                println!("Response status: {}", res.status());
+
+
+
                 // let _resp = client.post("http://localhost:3833")
                 //     .body(String::from_utf8(output.stdout).unwrap());
             }
