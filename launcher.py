@@ -38,7 +38,7 @@ if __name__ == "__main__":
                     str(get_port_no("wrapper")),
                 ],
             )
-        case "model":  # if the binary doesnt exist go to llama.cpp, run cmake -B build -DBUILD_SHARED_LIBS=OFF, cmake --build build --config Release -j 8 --target
+        case "model":  # if the binary doesnt exist go to llama.cpp, run cmake -B build -DGGML_CUDA=ON -DBUILD_SHARED_LIBS=OFF, cmake --build build --config Release -j 8 --target llama-server
             executable = "llama.cpp/build/bin/llama-server"
             os.execv(
                 executable,
