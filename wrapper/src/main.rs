@@ -108,6 +108,20 @@ async fn handle_prompt_request(data: PushData, state: AppState) {
 async fn call_model(original: String, model_port: u16) {
     let parsed: Prompt = serde_json::from_str(&original).expect("Invalid JSON");
     let url = format!("http://127.0.0.1:{}", model_port);
+    let authority = "http://localhost:3833".parse::<Uri>().unwrap().authority().unwrap().clone();
+
+    // Create an HTTP request with an empty body and a HOST header
+    let req = Request::builder()
+        .uri(url.clone())
+        .header(hyper::header::HOST, authority.as_str())
+        .body(http_body_util::Full::new(Bytes::from(parsed.prompt))).unwrap();
+
+    // Await the response...
+    let res = sender.send_request(req).await.unwrap();
+
+    println!("Response status: {}", res.status());
+
+
 }
 
 async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, port: u16) {
