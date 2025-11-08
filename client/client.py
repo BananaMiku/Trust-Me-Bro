@@ -1,8 +1,18 @@
-import requests
-import sys
+#!/bin/python
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import MODELS, InternalRequest, send_prompt_request, set_mode, get_mode, get_port_no
+import sys
+
+import requests
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from utils import (
+    MODELS,
+    InternalRequest,
+    get_mode,
+    get_port_no,
+    send_prompt_request,
+    set_mode,
+)
 
 
 class PromptRequest:
@@ -15,5 +25,9 @@ class PromptRequest:
 if __name__ == "__main__":
     load_url = "http://127.0.0.1:{}".format(get_port_no("load"))
     print(load_url)
-    to_send = InternalRequest(original='{"messages": [{"role": "user", "content": "hello"}]}', uuid="id 1", model="gpt5")
+    to_send = InternalRequest(
+        original='{"messages": [{"role": "user", "content": "hello"}]}',
+        uuid="id 1",
+        model="gpt5",
+    )
     send_prompt_request(to_send)
