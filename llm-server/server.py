@@ -14,9 +14,7 @@ app.state.port = get_port_no("load")
 def submit(data: PromptRequest, background_tasks: BackgroundTasks, request: Request):
     #asserts the request is valid
     if data.model not in MODELS:
-        return {
-            "status": "error"
-        }
+        raise HTTPException(status_code=500, detail={})
 
     background_tasks.add_task(handle_prompt_request, data, request)
     
@@ -35,9 +33,8 @@ class ModeRequest(BaseModel):
 def submit(mode: ModeRequest, request: Request):
     #asserts the request is valid
     if mode.mode not in MODES:
-        return {
-            "status": "error"
-        }
+        raise HTTPException(status_code=500, detail={})
+
     request.app.state.response_mode = mode.mode 
 
     return {
