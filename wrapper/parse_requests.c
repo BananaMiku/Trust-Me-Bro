@@ -110,4 +110,43 @@ void free_internal_request(InternalRequest* req) {
     free(req->model);
     free(req);
 }
+// Helper to extract an int value from JSON by key
+static int extract_json_int(const char* json, const char* key) {
+    char* key_pos = strstr(json, key);
+    if (!key_pos) return 0;
+
+    char* colon = strchr(key_pos, ':');
+    if (!colon) return 0;
+
+    colon++;
+    while (*colon == ' ') colon++;
+
+    int value = 0;
+    sscanf(colon, "%d", &value);
+    return value;
+}
+
+// Parse PortToModel
+PortToModel* parse_port_to_model(const char* json_str) {
+    if (!json_str) return NULL;
+
+    PortToModel* req = malloc(sizeof(PortToModel));
+    if (!req) return NULL;
+
+    char* model = extract_json_string(json_str, "\"model\"");
+    int port = extract_json_int(json_str, "\"port\"");
+
+    req->model = model;
+    req->port = port;
+
+    return req;
+}
+
+// Free PortToModel
+void free_port_to_model(PortToModel* req) {
+    if (!req) return;
+    free(req->model);
+    free(req);
+}
+
 
