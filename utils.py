@@ -32,7 +32,7 @@ class InternalRequest(BaseModel):
 
 def send_prompt_request(internal_request):
     to_send = internal_request_to_json(internal_request) 
-    response = requests.post("{}{}".format(load_url, PROMPT_REQUEST_PATH), json=to_send)
+    response = requests.get("{}{}".format(load_url, PROMPT_REQUEST_PATH), json=to_send)
     print(response.status_code)
     print(response.json())
     return response.json()
