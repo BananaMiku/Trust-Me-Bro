@@ -4,7 +4,8 @@ import subprocess
 import threading
 
 import uvicorn
-from utils import get_port_no
+from utils import get_port_no, client
+
 
 WRAPPER_MTP = "a,3222;b,3223"
 
@@ -42,6 +43,10 @@ def launch_model():
         "--port", str(get_port_no("model")),
         ])
 
+
+
+
+
 def launch_all():
     load_thread = threading.Thread(target=launch_load, daemon=True)
     tmb_thread = threading.Thread(target=launch_tmb, daemon=True)
@@ -49,17 +54,24 @@ def launch_all():
     load_thread.start()
     print("launched load")
 
-    tmb_thread.start()
-    print("launched tmb")
+    # tmb_thread.start()
+    # print("launched tmb")
 
     launch_wrapper()
     print("launched wrapper")
 
-    launch_model()
-    print("launched model")
+    # launch_model()
+    # print("launched model")
 
+
+    from time import sleep
+    sleep(2)
+    print("----------------")
+    client()
+    
     load_thread.join()
     tmb_thread.join()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

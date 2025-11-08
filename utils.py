@@ -61,3 +61,24 @@ def set_mode(mode, server_url):
     data = {"mode": mode}
     response = requests.post("{}{}".format(server_url, SET_MODE_PATH), json=data)
     return response.json()
+
+
+
+class PromptRequest:
+    def __init__(self, uuid, prompt, model):
+        self.uuid = uuid
+        self.prompt = prompt
+        self.model = model
+
+
+def client():
+    messages = []
+    while True:
+        userInput = input()
+        messages.append({"role": "user", "content": userInput})
+        to_send = InternalRequest(
+            original=f"{{'messages': {json.dumps(messages)}}}",
+            uuid="id 1",
+            model="gpt5",
+        )
+        send_prompt_request(to_send)

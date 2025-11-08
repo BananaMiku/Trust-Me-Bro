@@ -32,4 +32,4 @@ if __name__ == "__main__":
             uuid="id 1",
             model="gpt5",
         )
-        send_prompt_request(to_send)
+        print(send_prompt_request(to_send))
