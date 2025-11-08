@@ -1,11 +1,16 @@
 use axum::{
-    Router,
+    Error, Router,
     extract::{Json as ExtractJson, State},
-    response::Json,
-    routing::post,
+    http::header,
+    response::{IntoResponse, Json},
+    routing::{get, post},
 };
-use hyper::body::Bytes;
+use http_body_util::BodyExt;
 use hyper::{Request, Uri};
+use hyper::{
+    Response,
+    body::{Bytes, Incoming},
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -46,7 +51,7 @@ async fn main() {
     };
 
     let app = Router::new()
-        .route("/", post(push_handler))
+        .route("/", get(push_handler))
         .with_state(state);
 
     let port: u16 = port_no.parse().expect("Invalid port number");
@@ -70,42 +75,47 @@ struct PushData {
 async fn push_handler(
     State(state): State<AppState>,
     ExtractJson(payload): ExtractJson<PushData>,
-) -> Json<serde_json::Value> {
-    tokio::spawn(handle_prompt_request(payload, state)); //new thread so we can respond
-    Json(json!({ "status": "success"}))
-}
-
-async fn handle_prompt_request(data: PushData, state: AppState) {
+) -> impl IntoResponse {
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let mut port_no = 0;
     for (model, port) in state.models.iter() {
-        if model == &data.model {
+        if model == &payload.model {
             port_no = *port;
         }
     }
 
-    let model_request = tokio::spawn(call_model(data.original, port_no));
-    let nvidia_thread = tokio::spawn(nvidia(stop_rx, data.uuid, port_no));
+    let model_request = tokio::spawn(call_model(payload.original, port_no));
+    let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no));
 
     //end when we get network
-    let res = model_request.await;
+    // let res = model_request.await;
     let _ = stop_tx.send(()); //kills nvidia thread
-    let res2 = nvidia_thread.await;
+    let _ = nvidia_thread.await;
+
+    // if let Ok(res) = res {
+    //     return (
+    //         [(header::CONTENT_TYPE, "application/json")],
+    //         format!("{:?}", res.into_body()),
+    //     );
+    // }
+    // (
+    //     [(header::CONTENT_TYPE, "application/json")],
+    //     String::from("{\"message\": \"died\"}"),
+    // )
+
+    (
+        [(header::CONTENT_TYPE, "application/json")],
+        "{\"messages\": [{\"role\": \"user\", \"content\": \"hi\"}, {\"role\": \"assistant\", \"content\": \"hi\"}]}",
+    )
 }
 
-async fn call_model(original: String, model_port: u16) {
-    println!("hi");
-    let stream = TcpStream::connect("localhost:3833").await.unwrap();
+async fn call_model(original: String, model_port: u16) -> Response<Incoming> {
+    let url = format!("http://127.0.0.1:{}", model_port);
+    let stream = TcpStream::connect(url.clone()).await.unwrap();
     let io = TokioIo::new(stream);
     let (mut sender, _conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
 
-    let url = format!("http://127.0.0.1:{}", model_port);
-    let authority = "http://localhost:3833"
-        .parse::<Uri>()
-        .unwrap()
-        .authority()
-        .unwrap()
-        .clone();
+    let authority = url.parse::<Uri>().unwrap().authority().unwrap().clone();
 
     // Create an HTTP request with an empty body and a HOST header
     let req = Request::builder()
@@ -119,9 +129,15 @@ async fn call_model(original: String, model_port: u16) {
     let res = sender.send_request(req).await.unwrap();
 
     println!("Response status: {}", res.status());
+    res
 }
 
-async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, uuid: String, port: u16) {
+async fn nvidia(
+    mut stop_rx: tokio::sync::oneshot::Receiver<()>,
+    uuid: String,
+    model: String,
+    port: u16,
+) {
     println!("started query for nvidia");
 
     /*
@@ -167,10 +183,14 @@ async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, uuid: String, p
             _ = sleep(Duration::from_secs(1)) => {
                 // let smi_out = String::from_utf8(smi.output().expect("unable to execute nvidia_smi").stdout).unwrap();
                 let smi_out = "GPU-09dfe69f-a29c-c23f-35a4-c5b79af54d34, NVIDIA GeForce RTX 4080 SUPER, 1, 0, 642, 5.57, 35";
+                let items: Vec<&str> = smi_out.split(", ").collect();
 
                 let authority = "http://localhost:3833".parse::<Uri>().unwrap().authority().unwrap().clone();
 
-                let report = format!("{}: {}", uuid, smi_out);
+                let report = format!("{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}",
+                    items.get(2).unwrap(),
+                    items.get(5).unwrap(),
+                    items.get(6).unwrap(), uuid, model);
 
                 // Create an HTTP request with an empty body and a HOST header
                 let req = Request::builder()
