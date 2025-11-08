@@ -58,8 +58,9 @@ def internal_request_to_json(internal_request):
 
 def send_internal_request(internal_request):
     to_send = internal_request_to_json(internal_request) 
+    print(to_send)
     wrapper_url = "http://127.0.0.1:{}/".format(get_port_no("wrapper"))
-    response = requests.post("{}{}".format(wrapper_url, internal_request), json=to_send) #TODO set path
+    response = requests.post(wrapper_url, json=to_send) #TODO set path
     return response.json()
 
 def get_mode(server_url):

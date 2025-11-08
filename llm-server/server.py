@@ -63,6 +63,7 @@ class InternalRequest(BaseModel):
 
 def handle_prompt_request(prompt_request: PromptRequest, response_mode: str):
     internal_request = InternalRequest(original=prompt_request_to_json(prompt_request), uuid=prompt_request.uuid, model=prompt_request.model)
+    print(internal_request)
     match response_mode:
         case "skimp":
             internal_request.model = "b"
