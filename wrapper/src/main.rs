@@ -42,7 +42,23 @@ struct PushData {
 }
 
 async fn push_handler(ExtractJson(payload): ExtractJson<PushData>) -> Json<serde_json::Value> {
-    println!("Received push: {:?}", payload);
+    tokio::spawn(handle_prompt_request(payload)); //new thread so we can respond
     Json(json!({ "status": "success"}))
+}
+
+async fn handle_prompt_request(data: PushData) {
+    let task1 = tokio::spawn(async {
+        //put way to query model
+        fn1("Message 1").await;
+    });
+
+    let task2 = tokio::spawn(async {
+        //nvidia pull
+        fn2("Message 2").await;
+    });
+
+    // Wait for both tasks to finish
+    let (res1, res2) = join!(task1, task2);
+    //send to our server 
 }
 
