@@ -24,34 +24,22 @@ def get_port_no(process_name):
     return None 
 
 load_url = "http://127.0.0.1:{}".format(get_port_no("load"))
-class PromptRequest(BaseModel):
-    uuid: str
-    prompt: str
-    model: str
 
 class InternalRequest(BaseModel):
-    original: PromptRequest
+    original: str
     uuid: str
     model: str
 
-def send_prompt_request(prompt_request):
-    to_send = json.dumps(prompt_request)
+def send_prompt_request(internal_request):
+    to_send = internal_request_to_json(internal_request) 
     response = requests.post("{}{}".format(load_url, PROMPT_REQUEST_PATH), json=to_send)
     print(response.status_code)
     print(response.json())
     return response.json()
 
-def prompt_request_to_json(prompt_request):
-    ret = {
-        "uuid": prompt_request.uuid, 
-        "prompt": prompt_request.prompt,
-        "model": prompt_request.model
-    }
-    return ret
-
 def internal_request_to_json(internal_request):
     ret = {
-        "original": json.dumps(prompt_request_to_json(internal_request.original)),
+        "original": internal_request.original,
         "uuid": internal_request.uuid,
         "model": internal_request.model
     }
