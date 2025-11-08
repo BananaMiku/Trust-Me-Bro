@@ -54,8 +54,8 @@ def launch_all():
     load_thread.start()
     print("launched load")
 
-    # tmb_thread.start()
-    # print("launched tmb")
+    tmb_thread.start()
+    print("launched tmb")
 
     launch_wrapper()
     print("launched wrapper")
