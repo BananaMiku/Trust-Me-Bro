@@ -9,19 +9,14 @@ app = FastAPI()
 app.state.response_mode = "normal"
 app.state.port = get_port_no("load")
 
-@app.post("/submit_prompt")
+@app.get("/submit_prompt")
 def submit(data: InternalRequest, background_tasks: BackgroundTasks, request: Request):
     #asserts the request is valid
     if data.model not in MODELS:
         raise HTTPException(status_code=500, detail={})
 
     response_mode = request.app.state.response_mode
-    background_tasks.add_task(handle_prompt_request, data, response_mode)
-    
-    return {
-        "status": "accepted", 
-        "uuid": data.uuid
-    }
+    return handle_prompt_request(data, response_mode)
 
 @app.get("/mode")
 def get_mode(request: Request):
@@ -66,5 +61,5 @@ def handle_prompt_request(internal_request: InternalRequest, response_mode: str)
     match response_mode:
         case "skimp":
             internal_request.model = "b"
-    send_internal_request(internal_request)
+    return send_internal_request(internal_request)
 

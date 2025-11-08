@@ -51,9 +51,7 @@ def send_internal_request(internal_request):
     print(wrapper_url)
 
     headers = {"Content-Type": "application/json"}
-    response = requests.post(wrapper_url, data=json.dumps(to_send), headers=headers)
-    print("sent, status code:", response.status_code)
-    print("response:", response.text)
+    return requests.get(wrapper_url, data=json.dumps(to_send), headers=headers)
 
 def get_mode(server_url):
     response = requests.get("{}{}".format(server_url, GET_MODE_PATH), json={})
