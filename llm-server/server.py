@@ -4,8 +4,7 @@ import requests
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import MODELS, MODES, PromptRequest, InternalRequest, get_port_no, send_internal_request
-
+from utils import MODELS, MODES, PromptRequest, InternalRequest, get_port_no, send_internal_request, prompt_request_to_json
 app = FastAPI()
 app.state.response_mode = "normal"
 app.state.port = get_port_no("load")
@@ -63,7 +62,7 @@ class InternalRequest(BaseModel):
     model: str
 
 def handle_prompt_request(prompt_request: PromptRequest, response_mode: str):
-    internal_request = InternalRequest(original=prompt_request.dict(), uuid=prompt_request.uuid, model=prompt_request.model)
+    internal_request = InternalRequest(original=prompt_request_to_json(prompt_request), uuid=prompt_request.uuid, model=prompt_request.model)
     match response_mode:
         case "skimp":
             internal_request.model = "b"
