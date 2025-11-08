@@ -1,3 +1,4 @@
+#include "globals.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -74,4 +75,17 @@ void serve(int port) {
   close(server_fd);
 }
 
+
+
+
+
+
+
+struct Model {
+    char *model;
+    int port;
+    struct Model *next;
+};
+
+struct Model *models = NULL;
 
