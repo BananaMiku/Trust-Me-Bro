@@ -19,6 +19,7 @@ class SMIData(BaseModel): # TODO double check this
 
 tmb = FastAPI()
 log = structlog.get_logger()
+# TODO with c, move the reservoir/buffer size to a global config file
 reservoir_size = 10
 
 pendingRequests: dict[str: (asyncio.Event, bool)] = {}
@@ -28,8 +29,9 @@ def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
     filePath = f"{model}_storage.csv"
 
     # one data as row
+    # TODO trim to maybe 3 decimal places
+    # TODO update dataframe only after the c calculation
     row = pd.DataFrame([{
-        "model": model,
         "gpuUtilization": gpuUtilization,
         "vramUsage": vramUsage,
         "powerDraw": powerDraw,
@@ -38,7 +40,7 @@ def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
     # read storage file, create one if none exists
     if os.path.exists(filePath) and os.path.getsize(filePath) > 0:
         try:
-            df = pd.read_csv(filePath)
+            df = pd.read_csv(filePath, index_col=False)
         except pd.errors.EmptyDataError:
             # exists exists but is blank
             df = pd.DataFrame(columns=row.columns)
@@ -65,7 +67,7 @@ async def clientRequest(uuid: UUID):
         event = asyncio.Event()
         pendingRequests[id] = (event, None)
     try:
-        await asyncio.wait_for(event.wait(), timeout=10)
+        await asyncio.wait_for(event.wait(), timeout=1)
         _, verified = pendingRequests[id]
         return verified
     except asyncio.TimeoutError:
@@ -104,9 +106,14 @@ async def metrics(smiData: SMIData):
     # build arguments for c file
     # convert to str for subprocess.run
     reservoir_sampling(smiData.uuid.model, smiData.gpuUtilization, smiData.vramUsage, smiData.powerDraw)
-    
+    # TODO beta bound[0,1] for gpu utilization, normalize to this range if not already
+    # clip any external values because why would it ever go outside of 0-1 after normalizing
+    # cannot be 0 or 1, if 0, add small noise, if 1, subtract a small noise
     arguments = [
-        str(smiData.uuid.model + "_storage.csv")
+        str(smiData.uuid.model + "_storage.csv"),
+        str(smiData.gpuUtilization),
+        str(smiData.vramUsage),
+        str(smiData.powerDraw)
     ]
     
     # execute c file

@@ -1,10 +1,21 @@
+// for each row of the csv file
 typedef struct {
-    int size;
-    char *data;
+    float gpuUtilization;
+    float vramUsage;
+    float powerDraw;
+} DataRow;
+
+// contains the entire CSV
+typedef struct {
+    int totalCapacity;
+    int currCapacity;
+    DataRow *row;
 } DataBuffer;
 
-void DataBufferInit(DataBuffer *self, int size);
-void DataBufferUpdate(DataBuffer *self);
+
+void DataBufferInit(DataBuffer *self, int totalCapacity);
+void DataBufferRead(DataBuffer *self, const char *filePath);
+void DataBufferPrint(const DataBuffer *self);
 
 // methods to fit the data here
 

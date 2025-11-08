@@ -3,3 +3,18 @@ wrapper/target/*
 .venv
 __pycache__
 flake.lock
+
+# extensions
+*.o
+*.a
+*.so
+*.exe
+*.csv
+
+# file
+stats_verify
+
+# folder
+.pytest_cache
+.DS_Store
+.vscode
