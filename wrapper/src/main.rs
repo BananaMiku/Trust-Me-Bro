@@ -84,16 +84,17 @@ async fn handle_prompt_request(data: PushData, state: AppState) {
         }
     }
 
-    let model_request = tokio::spawn(async move { call_model(data.original, port_no) });
-    let nvidia_thread = tokio::spawn(async move { nvidia(stop_rx, data.uuid, port_no) });
+    let model_request = tokio::spawn(call_model(data.original, port_no));
+    let nvidia_thread = tokio::spawn(nvidia(stop_rx, data.uuid, port_no));
 
     //end when we get network
     let res = model_request.await;
     let _ = stop_tx.send(()); //kills nvidia thread
-    let _ = nvidia_thread.await;
+    let res2 = nvidia_thread.await;
 }
 
 async fn call_model(original: String, model_port: u16) {
+    println!("hi");
     let stream = TcpStream::connect("localhost:3833").await.unwrap();
     let io = TokioIo::new(stream);
     let (mut sender, _conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
@@ -114,6 +115,7 @@ async fn call_model(original: String, model_port: u16) {
         .unwrap();
 
     // Await the response...
+    println!("sending req");
     let res = sender.send_request(req).await.unwrap();
 
     println!("Response status: {}", res.status());
@@ -122,6 +124,7 @@ async fn call_model(original: String, model_port: u16) {
 async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, uuid: String, port: u16) {
     println!("started query for nvidia");
 
+    /*
     let mut ss = Command::new("ss");
     ss.arg("-lptn");
     ss.arg(format!("'sport= :{}'", port));
@@ -142,6 +145,7 @@ async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>, uuid: String, p
     smi.arg("--query-gpu=uuid,name,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu");
     smi.arg("--format=csv,noheader,nounits");
     smi.arg(format!("--query-compute-apps={}", pid));
+    */
 
     let url = "http://localhost:3833".parse::<Uri>().unwrap();
     let stream = TcpStream::connect("localhost:3833").await.unwrap();
