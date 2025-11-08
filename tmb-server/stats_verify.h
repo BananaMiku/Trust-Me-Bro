@@ -1,8 +1,8 @@
 // for each row of the csv file
 typedef struct {
-    float gpuUtilization;
-    float vramUsage;
-    float powerDraw;
+    double gpuUtilization;
+    double vramUsage;
+    double powerDraw;
 } DataRow;
 
 // contains the entire CSV

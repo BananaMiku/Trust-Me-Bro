@@ -1,13 +1,16 @@
+#include "stats_verify.h"
+#include <stdbool.h>
+
 /*
 Struct to keep relevant information
 */
 typedef struct {
-    float gpuSampleMean;
-    float vramSampleMean;
-    float powerDrawSampleMean;
-    float gpuSampleVariance;
-    float vramSampleVariance;
-    float powerDrawSampleVariance;
+    double gpuSampleMean;
+    double vramSampleMean;
+    double powerDrawSampleMean;
+    double gpuSampleVariance;
+    double vramSampleVariance;
+    double powerDrawSampleVariance;
 } Stats;
 
 typedef struct {
@@ -18,27 +21,28 @@ typedef struct {
 /*
 Calculates sample mean of the data
 */
-Stats sampleMean(DataBuffer *self) {}
+Stats sampleMean(DataBuffer *self);
+
 /*
 Calculates the sample variance of the data
 */
-Stats sampleVariance(DataBuffer *self) {}
+Stats sampleVariance(DataBuffer *self, Stats stats);
 
 /*
 Using MOM for t, alpha, and beta 
 */
-betaParams betaDistroGPU(DataBuffer *self) {}
-
-/*
-PDF inference on incoming data
-*/
-bool betaDistroGPUInference(float data, betaParams params) {}
+betaParams betaDistroGPU(DataBuffer *self);
 
 /*
 Helper method for the probability density function of a beta(0, 1) distribution
 Returns probability of seeing the given data point on a cut off threshold
 */
-float betaLogPDF(float data, betaParams params) {}
+double betaLogPDF(double data, double alpha, double beta);
 
-void betaDistroVRAM() {}
-void gammaDistroPower(){}
+/*
+PDF inference on incoming data
+*/
+bool betaDistroGPUInference(double data, betaParams params);
+
+void betaDistroVRAM();
+void gammaDistroPower();

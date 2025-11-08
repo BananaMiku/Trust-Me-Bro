@@ -1,33 +1,40 @@
 #include <stdio.h>
-#include <stdbool.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
-#include "stats_verify.h"
-#include "utils.c"
+//#include <gsl/gsl_errno.h>
+#include "utils.h"
 #define MAX_BUFFER 256
 #define SMI_DATA_LEN 3
 
 // entry point
 // simple local test:
-// ./stats_verify GPT-5_storage.csv 22.2 42.24 57.321
+/*
+gcc stats_verify.c utils.c \
+    -I/opt/homebrew/include \
+    -L/opt/homebrew/lib \
+    -lgsl -lgslcblas -lm \
+    -o stats_verify
+*/
+// ./stats_verify GPT-5_storage.csv 0.75 42.24 57.321
 int main(int argcnt, char *argls[]) {
+    //gsl_set_error_handler_off();
     printf("C file!\n");
-    fflush(stdout);
     // arcnt + length of argls
-    assert(argcnt == 5);
+    // assert(argcnt == 5);
     const char *filePath = argls[1];
 
     DataBuffer buffer;
     // TODO with python, move 10, the buffer size to a global config file
-    DataBufferInit(&buffer, 10);
+    DataBufferInit(&buffer, 100);
     DataBufferRead(&buffer, filePath);
     // DataBufferPrint(&buffer);
     betaParams params = betaDistroGPU(&buffer);
-    float data = 0.5;
-    foo = betaDistroGPUInference(data, params);
+    double data = 0.5;
+    bool foo = betaDistroGPUInference(data, params);
     printf("Checking bool bool: ");
-    printf(boo);
+    printf("%d", foo);
 
     return 0;
 }
