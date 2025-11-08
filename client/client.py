@@ -11,16 +11,6 @@ class PromptRequest:
         self.prompt = prompt
         self.model = model
 
-def send_prompt_request(PromptRequest):
-    to_send = {
-        "uuid": PromptRequest.uuid,
-        "prompt": PromptRequest.prompt,
-        "model": PromptRequest.model
-    }
-    response = requests.post(server_url, json=to_send)
-    print(response.status_code)
-    print(response.json())
-    return response.json()
 
 if __name__ == "__main__":
     load_url = "http://127.0.0.1:{}".format(get_port_no("load"))

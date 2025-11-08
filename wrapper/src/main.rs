@@ -3,11 +3,13 @@ use serde_json::json;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use regex::Regex;
+use tokio::sync::oneshot;
+use tokio::time::{sleep, Duration};
 
 #[tokio::main]
 async fn main() {
     // Get command-line args
-    let models_str = std::env::args().nth(1).expect("no file name");
+    let models_str = std::env::args().nth(1).expect("no model port str");
     let port_no = std::env::args().nth(2).expect("no port no");
 
     // Parse models
@@ -47,18 +49,31 @@ async fn push_handler(ExtractJson(payload): ExtractJson<PushData>) -> Json<serde
 }
 
 async fn handle_prompt_request(data: PushData) {
-    let task1 = tokio::spawn(async {
-        //put way to query model
-        fn1("Message 1").await;
-    });
+    let (stop_tx, stop_rx) = oneshot::channel::<()>();
+    let task1 = tokio::spawn(call_model());
+    let nvidia_thread = tokio::spawn(async move {nvidia(stop_rx)});
 
-    let task2 = tokio::spawn(async {
-        //nvidia pull
-        fn2("Message 2").await;
-    });
+    //end when we get network
+    let _ = task1.await;
+    let _ = stop_tx.send(()); //kills nvidia thread
+    let _ = nvidia_thread.await;
 
-    // Wait for both tasks to finish
-    let (res1, res2) = join!(task1, task2);
-    //send to our server 
 }
 
+async fn call_model(){
+}
+
+async fn nvidia(mut stop_rx : tokio::sync::oneshot::Receiver<()>) {
+    println!("started query for nvidia");
+    loop {
+        tokio::select! {
+            _ = &mut stop_rx => {
+                println!("killing nvidia query");
+                break;
+            }
+            _ = sleep(Duration::from_secs(1)) => {
+                println!("query nvidia");
+            }
+        }
+    }
+}
