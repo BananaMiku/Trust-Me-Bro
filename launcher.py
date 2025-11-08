@@ -31,8 +31,12 @@ if __name__ == "__main__":
 
         case "wrapper":
             os.execv(
-                "./wrapper/wrapper",
-                ["./wrapper/wrapper", WRAPPER_MTP, str(get_port_no("wrapper"))],
+                "./wrapper/target/debug/wrapper",
+                [
+                    "./wrapper/targets/debug/wrapper",
+                    WRAPPER_MTP,
+                    str(get_port_no("wrapper")),
+                ],
             )
         case "model":  # if the binary doesnt exist go to llama.cpp, run cmake -B build -DBUILD_SHARED_LIBS=OFF, cmake --build build --config Release -j 8 --target
             executable = "llama.cpp/build/bin/llama-server"
@@ -43,7 +47,7 @@ if __name__ == "__main__":
                     "-hf",
                     "ggml-org/gemma-3-1b-it-GGUF",  # model type
                     "--port",
-                    str(get_port_no("wrapper")),
+                    str(get_port_no("model")),
                 ],
             )
         case _:
