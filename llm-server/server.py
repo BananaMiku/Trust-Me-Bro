@@ -1,8 +1,14 @@
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
+import requests
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import MODELS, PromptRequest, InternalRequest
 
 app = FastAPI()
 
+<<<<<<< HEAD
 MODELS = ["gpt5", "gpt4", "gpt3"]
 
 class PromptRequest(BaseModel):
@@ -14,6 +20,8 @@ class MetricsPayload(BaseModel):
     query_uuid: str
     metrics: list
 
+=======
+>>>>>>> 2521504 (cleaned client server stuff)
 @app.post("/submit/")
 def submit(data: PromptRequest, background_tasks: BackgroundTasks):
     #asserts the request is valid
@@ -36,3 +44,4 @@ def receive_metrics(payload: MetricsPayload):
 
 def handle_prompt_request(request):
     print("uuid: {}, model: {}, prompt: {}".format(request.uuid, request.model, request.prompt))
+
