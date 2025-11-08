@@ -22,7 +22,38 @@ void sighandle(int sig) {
   exit(0);
 }
 
-char *query_nvidia_smi(int port) { return "hi"; }
+char *query_nvidia_smi(int port) { 
+  // find the PID of the process that is bound to the given TCP port.
+  // use `lsof` to query the local system for a process using that port. 
+  // If the model server spawns per-conversation worker PIDs or uses ephemeral worker processes, 
+  // it may not find the exact worker PID for a single conversation.
+  // most robust approach is to have the model server
+  // expose the worker PID (or include it in the response) so the wrapper can
+  // directly correlate a conversation UUID to a PID.
+
+  char cmd[128];
+  // Try to find any process listening on the port. -t prints only PIDs.
+  // Use -n -P to avoid DNS and service name lookups.
+  snprintf(cmd, sizeof(cmd), "lsof -iTCP:%d -sTCP:LISTEN -n -P -t 2>/dev/null", port);
+
+  FILE *fp = popen(cmd, "r");
+  if (!fp) {
+    return strdup("");
+  }
+
+  char pidbuf[64] = {0};
+  if (fgets(pidbuf, sizeof(pidbuf), fp) == NULL) {
+    pclose(fp);
+    return strdup("");
+  }
+  pclose(fp);
+
+  // strip newline
+  size_t len = strlen(pidbuf);
+  if (len > 0 && pidbuf[len-1] == '\n') pidbuf[len-1] = '\0';
+
+  return strdup(pidbuf);
+}
 
 char* make_request(char* addr_s, int port, char *req, char* buffer) {
   struct hostent *hp;
@@ -77,7 +108,7 @@ void *poll_nvidia_smi(void* _args) {
   while (!*args->done) {
     char *buffer = (char *)malloc(BUFFER_SIZE * sizeof(char));
   
-    char *something = query_nvidia_smi(port);
+    char *something = query_nvidia_smi(port); //port is the port that the model server is running on
     char *hostname = "https://ourserver.com";
 
     char* req;
@@ -219,11 +250,3 @@ void serve(int port, struct Model* _models) {
   close(server_fd);
  
 }
-
-
-
-
-
-
-
-
