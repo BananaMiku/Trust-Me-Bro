@@ -31,7 +31,7 @@ class PromptRequest(BaseModel):
 class InternalRequest(BaseModel):
     original: PromptRequest
     uuid: str
-    prompt: str
+    model: str
 
 def send_prompt_request(prompt_request):
     to_send = prompt_request_to_json(prompt_request)
@@ -51,14 +51,15 @@ def prompt_request_to_json(prompt_request):
 def internal_request_to_json(internal_request):
     ret = {
         "original": prompt_request_to_json(internal_request.original),
-        "prompt": internal_request.prompt,
+        "uuid": internal_request.uuid,
         "model": internal_request.model
     }
     return ret
 
-def send_internal_request(internal_request, server_url):
+def send_internal_request(internal_request):
     to_send = internal_request_to_json(internal_request) 
-    response = requests.post("{}{}".format(server_url, INTERNAL_REQUEST_PATH), json=data) #TODO set path
+    wrapper_url = "http://127.0.0.1:{}/".format(get_port_no("wrapper"))
+    response = requests.post("{}{}".format(wrapper_url, internal_request), json=to_send) #TODO set path
     return response.json()
 
 def get_mode(server_url):

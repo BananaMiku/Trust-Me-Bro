@@ -4,7 +4,7 @@ import requests
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import MODELS, MODES, PromptRequest, InternalRequest, get_port_no
+from utils import MODELS, MODES, PromptRequest, InternalRequest, get_port_no, send_internal_request
 
 app = FastAPI()
 app.state.response_mode = "normal"
@@ -16,7 +16,9 @@ def submit(data: PromptRequest, background_tasks: BackgroundTasks, request: Requ
     if data.model not in MODELS:
         raise HTTPException(status_code=500, detail={})
 
-    background_tasks.add_task(handle_prompt_request, data, request)
+    response_mode = request.app.state.response_mode
+    background_tasks.add_task(handle_prompt_request, data, response_mode)
+
     
     return {
         "status": "success",
@@ -60,11 +62,10 @@ class InternalRequest(BaseModel):
     uuid: str
     model: str
 
-def handle_prompt_request(prompt_request, request: Request):
-    internal_request = InternalRequest(original=prompt_request, uuid=prompt_request.uuid, model=prompt_request.model)
-    match request.app.state.response_mode:
+def handle_prompt_request(prompt_request: PromptRequest, response_mode: str):
+    internal_request = InternalRequest(original=prompt_request.dict(), uuid=prompt_request.uuid, model=prompt_request.model)
+    match response_mode:
         case "skimp":
-            send_internal_request(internal_request, server_url)
-        case _:
-            send_internal_request(internal_request, server_url)
+            internal_request.model = "b"
+    send_internal_request(internal_request)
 
