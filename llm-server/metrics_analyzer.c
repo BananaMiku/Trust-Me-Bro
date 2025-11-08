@@ -190,5 +190,3 @@ int main() {
     handle_query(10);  
     return 0;
 }
-
-// i am steven zhang i am so cool
