@@ -1,30 +1,51 @@
-use axum::{Router, extract::Json as ExtractJson, response::Json, routing::post};
-use http::request::{Request, Response};
-use regex::Regex;
+use axum::{
+    Router,
+    extract::{Json as ExtractJson, State},
+    response::Json,
+    routing::post,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use regex::Regex;
+
+use std::sync::Arc;
 use std::net::SocketAddr;
 use std::process::Command;
+
 use tokio::sync::oneshot;
-use tokio::time::{Duration, sleep};
+use tokio::time::{sleep, Duration};
+
+// For sending HTTP requests
+use reqwest;
+
+
+#[derive(Clone)]
+struct AppState {
+    models: Arc<Vec<(String, u16)>>,
+}
 
 #[tokio::main]
 async fn main() {
     // Get command-line args
-    let models_str = std::env::args().nth(1).expect("no model port str");
+    let models_str = std::env::args().nth(1).expect("no file name");
     let port_no = std::env::args().nth(2).expect("no port no");
 
-    // Parse models
     let re = Regex::new(r"([a-zA-Z]+),([0-9]+);").unwrap();
     let mut models = vec![];
+
     for cap in re.captures_iter(&models_str) {
-        let model = cap.get(1).unwrap().as_str();
+        let model = cap.get(1).unwrap().as_str().to_string();
         let port = cap.get(2).unwrap().as_str().parse::<u16>().unwrap();
-        models.push((model.to_string(), port));
+        models.push((model, port));
     }
+
     println!("Parsed models: {:?}", models);
 
-    let app = Router::new().route("/", post(push_handler));
+    let state = AppState {
+        models: Arc::new(models),
+    };
+
+    let app = Router::new() .route("/", post(push_handler)).with_state(state);
 
     let port: u16 = port_no.parse().expect("Invalid port number");
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -44,23 +65,40 @@ struct PushData {
     model: String,
 }
 
-async fn push_handler(ExtractJson(payload): ExtractJson<PushData>) -> Json<serde_json::Value> {
-    tokio::spawn(handle_prompt_request(payload)); //new thread so we can respond
+
+#[derive(Debug, Deserialize)]
+struct Prompt {
+    prompt: String,
+    model: String,
+    uuid: String,
+}
+
+async fn push_handler(State(state): State<AppState>, ExtractJson(payload): ExtractJson<PushData>) -> Json<serde_json::Value> {
+    tokio::spawn(handle_prompt_request(payload, state)); //new thread so we can respond
     Json(json!({ "status": "success"}))
 }
 
-async fn handle_prompt_request(data: PushData) {
+async fn handle_prompt_request(data: PushData, state: AppState) {
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
-    let task1 = tokio::spawn(call_model());
-    let nvidia_thread = tokio::spawn(async move { nvidia(stop_rx) });
+    let mut port_no = 0;
+    for (model, port) in state.models.iter() {
+        if model == &data.model {
+            port_no = *port;
+        }
+    } 
+
+    let model_request = tokio::spawn(call_model(data.original, port_no));
+    let nvidia_thread = tokio::spawn(async move {nvidia(stop_rx)});
 
     //end when we get network
-    let _ = task1.await;
+    let _ = model_request.await;
     let _ = stop_tx.send(()); //kills nvidia thread
     let _ = nvidia_thread.await;
 }
 
-async fn call_model() {}
+async fn call_model(original: String, model_port: u16){
+    let parsed: Prompt = serde_json::from_str(&original).expect("Invalid JSON");
+}
 
 async fn nvidia(mut stop_rx: tokio::sync::oneshot::Receiver<()>) {
     println!("started query for nvidia");
