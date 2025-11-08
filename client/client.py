@@ -1,8 +1,7 @@
 #!/bin/python
+import json
 import os
 import sys
-
-import requests
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils import (
@@ -24,10 +23,13 @@ class PromptRequest:
 
 if __name__ == "__main__":
     load_url = "http://127.0.0.1:{}".format(get_port_no("load"))
-    print(load_url)
-    to_send = InternalRequest(
-        original='{"messages": [{"role": "user", "content": "hello"}]}',
-        uuid="id 1",
-        model="gpt5",
-    )
-    send_prompt_request(to_send)
+    messages = []
+    while True:
+        userInput = input()
+        messages.append({"role": "user", "content": userInput})
+        to_send = InternalRequest(
+            original=f"{{'messages': {json.dumps(messages)}}}",
+            uuid="id 1",
+            model="gpt5",
+        )
+        send_prompt_request(to_send)
