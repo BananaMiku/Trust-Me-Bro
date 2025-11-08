@@ -3,3 +3,4 @@ wrapper/target/*
 .venv
 __pycache__
 flake.lock
+verifier/venv
