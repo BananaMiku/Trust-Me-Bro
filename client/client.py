@@ -5,6 +5,23 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import MODELS, PromptRequest, InternalRequest, send_prompt_request, set_mode, get_mode, get_port_no
 
 
+class PromptRequest:
+    def __init__(self, uuid, prompt, model):
+        self.uuid = uuid
+        self.prompt = prompt
+        self.model = model
+
+def send_prompt_request(PromptRequest):
+    to_send = {
+        "uuid": PromptRequest.uuid,
+        "prompt": PromptRequest.prompt,
+        "model": PromptRequest.model
+    }
+    response = requests.post(server_url, json=to_send)
+    print(response.status_code)
+    print(response.json())
+    return response.json()
+
 if __name__ == "__main__":
     load_url = "http://127.0.0.1:{}".format(get_port_no("load"))
     print(load_url)

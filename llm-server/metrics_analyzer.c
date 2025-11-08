@@ -35,29 +35,6 @@
 #define TMB_SERVER_URL "http://127.0.0.1:8000/metrics/"
 #define LOG_INTERVAL 2 //seconds
 
-// char* run_nvidia_smi() {
-//     FILE *fp;
-//     char *output = NULL;
-//     size_t size = 0;
-//     fp = popen("nvidia-smi --query-gpu=name,utilization.gpu,utilization.memory,memory.total,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem --format=csv,noheader,nounits", "r");
-//     if (fp == NULL) {
-//         perror("Failed to run nvidia-smi");
-//         return NULL;
-//     }
-
-//     char buffer[256];
-//     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-//         size_t len = strlen(buffer);
-//         output = realloc(output, size + len + 1);
-//         memcpy(output + size, buffer, len);
-//         size += len;
-//         output[size] = '\0';
-//     }
-
-//     pclose(fp);
-//     return output;
-// }
-
 json_t* parse_gpu_metrics(const char *csv_output) {
     json_t *metrics = json_array();
     char *copy = strdup(csv_output);
@@ -137,9 +114,33 @@ void generate_uuid(char *uuid_str) {
 }
 
 // Mock function to simulate nvidia-smi output for testing
+// char* run_nvidia_smi() {
+//     return strdup("GPU-1234, RTX 4090, 90, 60, 24000, 280.5, 70");
+// }
 char* run_nvidia_smi() {
-    return strdup("GPU-1234, RTX 4090, 90, 60, 24000, 280.5, 70");
+    FILE *fp;
+    char *output = NULL;
+    size_t size = 0;
+
+    fp = popen("nvidia-smi --query-gpu=uuid,name,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu --format=csv,noheader,nounits", "r");
+    if (fp == NULL) {
+        perror("Failed to run nvidia-smi");
+        return NULL;
+    }
+
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        size_t len = strlen(buffer);
+        output = realloc(output, size + len + 1);
+        memcpy(output + size, buffer, len);
+        size += len;
+        output[size] = '\0';
+    }
+
+    pclose(fp);
+    return output;
 }
+
 
 // Main handler loop
 void handle_query(int job_duration) {
