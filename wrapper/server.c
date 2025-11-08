@@ -1,3 +1,4 @@
+#include "server.h"
 #include "globals.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,8 +7,93 @@
 #include <regex.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
+#include <string.h>
+#include <signal.h>
 
 #define BUFFER_SIZE 104857600
+
+int server_fd;
+void sighandle(int sig) {
+  close(server_fd);
+  exit(0);
+}
+
+char *query_nvidia_smi(int port) { return "hi"; }
+
+char* make_request(char* addr_s, int port, char *req, char* buffer) {
+  struct hostent *hp;
+  struct sockaddr_in addr;
+  int sock;
+	int on=1;
+
+  if((hp = gethostbyname(addr_s)) == NULL){
+		perror("gethostbyname");
+		exit(1);
+	}
+
+  bcopy(hp->h_addr, &addr.sin_addr, hp->h_length);
+	addr.sin_port = htons(port);
+	addr.sin_family = AF_INET;
+	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof(int));
+
+	if(sock == -1) {
+	  perror("setsockopt");
+	  exit(1);
+	}
+
+	if(connect(sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) == -1){
+		perror("connect");
+		exit(1);
+	}
+	
+	write(sock, req, strlen(req));
+	bzero(buffer, BUFFER_SIZE);
+	
+	char *res = malloc(BUFFER_SIZE);
+	int totallen = 0;
+	int len;
+	while ((len = read(sock, buffer, BUFFER_SIZE - 1)) != 0){
+	  totallen += len*4;
+	  buffer = realloc(buffer, totallen);
+	  strcat(res, buffer);
+	}
+
+	return res;
+}
+
+struct PollNvidiaSmiArgs {
+  int port;
+  int *done;
+};
+void *poll_nvidia_smi(void* _args) {
+  struct PollNvidiaSmiArgs *args = (struct PollNvidiaSmiArgs*)_args;
+  int port = args->port;
+
+  while (!*args->done) {
+    char *buffer = (char *)malloc(BUFFER_SIZE * sizeof(char));
+  
+    char *something = query_nvidia_smi(port);
+    char *hostname = "https://ourserver.com";
+
+    char* req;
+    sprintf(req,
+      "GET %s HTTP/1.0\r\n"
+      "Host: %s\r\n"
+      "Content-type: text/plain\r\n"
+      "Content-length: %ld\r\n\r\n"
+      "%s\r\n", "/", hostname, strlen(something), something);
+  
+    char *res = make_request(hostname, 80, req, buffer);
+    free(res);
+    sleep(1);
+  }
+  return NULL;
+}
+
+
 
 void *handle_client(void *arg) {
   int client_fd = *((int *)arg);
@@ -16,13 +102,49 @@ void *handle_client(void *arg) {
   // receive request data from client and store into buffer
   ssize_t bytes_received = recv(client_fd, buffer, BUFFER_SIZE, 0);
   if (bytes_received > 0) {
-    printf("%s", buffer);
     
-    // regex_t regex;
-    // regcomp(&regex, "^GET /([^ ]*) HTTP/1", REG_EXTENDED);
-    // regmatch_t matches[2];
+    char *body = strstr(buffer, "\r\n\r\n");
+    if (body == NULL) {
+      perror("bad request");
+      exit(1);
+    }
+    body += 4;
+    
+    InternalRequest *req = parse_internal_request(body);
+    
+    // get port from model
+    struct Model *model;
+    for (struct Model *p = models; p != NULL; p = p->next) {
+      if (strcmp(p->model, req->model)) {
+        model = p;
+        break;
+      }
+    }
+    if (model == NULL) {
+      perror("unknown model");
+      exit(0);
+    }
+    
+    char* newreq;
+    sprintf(newreq, "%.*s%s", (int)((body - buffer)/4), buffer, req->original);
 
-    // regfree(&regex);
+    // start profiling before we make the request
+    pthread_t thread_id;
+    int done = 0;
+    struct PollNvidiaSmiArgs args = {
+      .done = &done,
+      .port = model->port,
+    };
+    pthread_create(&thread_id, NULL, poll_nvidia_smi, &args);
+
+    
+    char* res = make_request("localhost", model->port, newreq, buffer);
+    done = 1;
+    write(client_fd, res, strlen(res));
+    close(client_fd);
+
+    free(res);
+    free(newreq);
   }
   close(client_fd);
   free(arg);
@@ -32,7 +154,6 @@ void *handle_client(void *arg) {
 
 
 void serve(int port) {
-  int server_fd;
   struct sockaddr_in server_addr;
   
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -54,6 +175,8 @@ void serve(int port) {
     exit(EXIT_FAILURE);
   }
 
+  signal(SIGINT, sighandle);
+
   while (1) {
     // client info
     struct sockaddr_in client_addr;
@@ -73,6 +196,7 @@ void serve(int port) {
   }
 
   close(server_fd);
+ 
 }
 
 
@@ -81,11 +205,4 @@ void serve(int port) {
 
 
 
-struct Model {
-    char *model;
-    int port;
-    struct Model *next;
-};
-
-struct Model *models = NULL;
 

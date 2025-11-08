@@ -4,8 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct Model* models = NULL;
 
 int main(int argc, char **argv) {
+
+    if (argc != 3) {
+        perror("wrong number of arguments");
+        exit(1);
+    }
+    
 
     char *input = strdup(argv[1]);
 
@@ -32,13 +39,13 @@ int main(int argc, char **argv) {
         printf("%s %d\n", p->model ? p->model : "(null)", p->port);
     }
 
-    while (models) {
-        struct Model *next = models->next;
-        free(models->model);
-        free(models);
-        models = next;
-    }
-    free(input);
+    // while (models) {
+    //     struct Model *next = models->next;
+    //     free(models->model);
+    //     free(models);
+    //     models = next;
+    // }
+    // free(input);
 
     serve(atoi(argv[2]));
 }

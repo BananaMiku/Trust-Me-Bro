@@ -26,30 +26,6 @@ static char* extract_json_string(const char* json, const char* key) {
     return value;
 }
 
-// Parse PromptRequest
-PromptRequest* parse_prompt_request(const char* json_str) {
-    if (!json_str) return NULL;
-
-    PromptRequest* req = malloc(sizeof(PromptRequest));
-    if (!req) return NULL;
-
-    char* uuid = extract_json_string(json_str, "\"uuid\"");
-    char* prompt = extract_json_string(json_str, "\"prompt\"");
-    char* model = extract_json_string(json_str, "\"model\"");
-
-    if (uuid) {
-        strncpy(req->uuid, uuid, sizeof(req->uuid));
-        free(uuid);
-    } else {
-        req->uuid[0] = '\0';
-    }
-
-    req->prompt = prompt;
-    req->model = model;
-
-    return req;
-}
-
 // Parse InternalRequest
 InternalRequest* parse_internal_request(const char* json_str) {
     if (!json_str) return NULL;
@@ -67,16 +43,10 @@ InternalRequest* parse_internal_request(const char* json_str) {
         strncpy(original_json, brace_start, len);
         original_json[len] = '\0';
 
-        PromptRequest* original = parse_prompt_request(original_json);
-        if (original) {
-            req->original = *original;
-            free(original);
-        }
+        req->original = original_json;
         free(original_json);
     } else {
-        req->original.uuid[0] = '\0';
-        req->original.prompt = NULL;
-        req->original.model = NULL;
+        req->original = "";
     }
 
     // Parse top-level uuid and model
@@ -95,18 +65,10 @@ InternalRequest* parse_internal_request(const char* json_str) {
     return req;
 }
 
-// Free functions
-void free_prompt_request(PromptRequest* req) {
-    if (!req) return;
-    free(req->prompt);
-    free(req->model);
-    free(req);
-}
 
 void free_internal_request(InternalRequest* req) {
     if (!req) return;
-    free(req->original.prompt);
-    free(req->original.model);
+    free(req->original);
     free(req->model);
     free(req);
 }
@@ -125,28 +87,4 @@ static int extract_json_int(const char* json, const char* key) {
     sscanf(colon, "%d", &value);
     return value;
 }
-
-// Parse PortToModel
-PortToModel* parse_port_to_model(const char* json_str) {
-    if (!json_str) return NULL;
-
-    PortToModel* req = malloc(sizeof(PortToModel));
-    if (!req) return NULL;
-
-    char* model = extract_json_string(json_str, "\"model\"");
-    int port = extract_json_int(json_str, "\"port\"");
-
-    req->model = model;
-    req->port = port;
-
-    return req;
-}
-
-// Free PortToModel
-void free_port_to_model(PortToModel* req) {
-    if (!req) return;
-    free(req->model);
-    free(req);
-}
-
 
