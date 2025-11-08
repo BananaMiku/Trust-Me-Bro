@@ -15,7 +15,7 @@ class PromptRequest:
 if __name__ == "__main__":
     load_url = "http://127.0.0.1:{}".format(get_port_no("load"))
     print(load_url)
-    send_prompt_request(PromptRequest(uuid="id 1", prompt="10", model="gpt5"))
+    send_prompt_request({"uuid": "id 1", "model": "gpt5", "original": '{"messages": [{"role": "user", "content": "hello"}]}' })
     set_mode("skimp", load_url)
     print(get_mode(load_url))
     send_prompt_request(PromptRequest(uuid="id 1", prompt="10", model="gpt5"))

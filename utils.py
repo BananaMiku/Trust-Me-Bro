@@ -35,7 +35,7 @@ class InternalRequest(BaseModel):
     model: str
 
 def send_prompt_request(prompt_request):
-    to_send = prompt_request_to_json(prompt_request)
+    to_send = json.dumps(prompt_request)
     response = requests.post("{}{}".format(load_url, PROMPT_REQUEST_PATH), json=to_send)
     print(response.status_code)
     print(response.json())
