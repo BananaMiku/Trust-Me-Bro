@@ -74,11 +74,6 @@ class PCRVerifier:
                     algo = digest_entry['AlgorithmId'].lower()
                     if algo in self.pcr_banks:
                         self.extend_pcr(pcr_index, algo, digest_entry['Digest'])
-            elif 'Digest' in event:
-                # Single digest format
-                algo = event.get('Algorithm', 'sha1').lower()
-                if algo in self.pcr_banks:
-                    self.extend_pcr(pcr_index, algo, event['Digest'])
 
         return self.pcr_banks
 
@@ -92,7 +87,7 @@ def main():
     verifier = PCRVerifier()
     
     # Path to the boot log file
-    boot_log_file = "shared/boot_log.yaml"
+    boot_log_file = "shared/secure_boot.yaml"
     
     try:
         # Verify the boot log
