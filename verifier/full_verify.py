@@ -69,6 +69,8 @@ def parse_ima_ng(data_bytes: bytes):
     return data_hash, name
 
 bootroot="shared"
+rofiles = [b"/etc/audit/rules.d/audit.rules",
+           b"/var/log/audit/audit.log"]
 def main():
     verifier = PCRVerifier()
 
@@ -182,6 +184,7 @@ def main():
                 # print(f"{file_name=}")
                 if file_data_hash != b"\x00" * 20:
                     latest_file_hashes[file_name] = file_data_hash
+                assert not (pcr_index == 11 and file_name in rofiles), "Illegal edit detected!"
 
             hash_algorithm = hashlib.sha1()
             hash_algorithm.update(template_data)
