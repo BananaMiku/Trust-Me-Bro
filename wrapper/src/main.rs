@@ -105,14 +105,8 @@ async fn push_handler(
 }
 
 async fn call_model(original: String, model_port: u16) -> hyper::Response<Incoming> {
-<<<<<<< HEAD
-    print!("calling model");
-    let url = format!("http://localhost:{}/v1/chat/completion", model_port);
-    let stream = TcpStream::connect(&url).await.unwrap();
-=======
     //let stream = TcpStream::connect(format!("localhost:{}", model_port))
     let stream = TcpStream::connect("localhost:3222").await.unwrap();
->>>>>>> 0221465 (ifixex things)
     let io = TokioIo::new(stream);
     let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
     tokio::task::spawn(async move {
@@ -135,12 +129,7 @@ async fn call_model(original: String, model_port: u16) -> hyper::Response<Incomi
     // Await the response...
     let res = sender.send_request(req).await.unwrap();
 
-<<<<<<< HEAD
     println!("Model Response status: {}", res.status());
-=======
-    println!("Response status: {}", res.status());
-    println!("rust response!! {:?}", res.body());
->>>>>>> 0221465 (ifixex things)
     res.into()
 }
 
