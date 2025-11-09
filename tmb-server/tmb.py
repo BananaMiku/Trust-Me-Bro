@@ -105,6 +105,7 @@ async def clientRequest(uuid: UUID):
     session = pendingRequests[userID]
     try:
         await asyncio.wait_for(session["Event"].wait(), timeout=6)
+
         return {"Verified": session["Verification"]}
     except asyncio.TimeoutError:
         err = "Verification Process Timed Out"
