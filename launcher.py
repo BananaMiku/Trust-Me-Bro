@@ -4,47 +4,54 @@ import subprocess
 import threading
 
 import uvicorn
-from utils import get_port_no, client
 
+from utils import client, get_port_no
 
 WRAPPER_MTP = "a,3222;b,3223"
+
 
 def launch_load():
     """Launch the load server in a blocking call (to be run in a thread)."""
     uvicorn.run(
-            "llm-server.server:app",
-            host="0.0.0.0",
-            port=get_port_no("load"),
-            reload=False, 
-            )
+        "llm-server.server:app",
+        host="0.0.0.0",
+        port=get_port_no("load"),
+        reload=False,
+    )
+
 
 def launch_tmb():
     """Launch the tmb server in a blocking call (to be run in a thread)."""
     uvicorn.run(
-            "tmb-server.tmb:tmb",
-            host="0.0.0.0",
-            port=get_port_no("tmb"),
-            reload=False,
-            )
+        "tmb-server.tmb:tmb",
+        host="0.0.0.0",
+        port=get_port_no("tmb"),
+        reload=False,
+    )
+
 
 def launch_wrapper():
     """Launch the wrapper executable as a subprocess."""
-    subprocess.Popen([
-        "./wrapper/target/debug/wrapper",
-        WRAPPER_MTP,
-        str(get_port_no("wrapper")),
-        ])
+    subprocess.Popen(
+        [
+            "./wrapper/target/debug/wrapper",
+            WRAPPER_MTP,
+            str(get_port_no("wrapper")),
+        ]
+    )
+
 
 def launch_model():
     """Launch the model server as a subprocess."""
-    subprocess.Popen([
-        "./llama.cpp/build/bin/llama-server",
-        "-hf", "ggml-org/gemma-3-1b-it-GGUF",
-        "--port", str(get_port_no("model")),
-        ])
-
-
-
+    subprocess.Popen(
+        [
+            "./llama.cpp/build/bin/llama-server",
+            "-hf",
+            "ggml-org/gemma-3-1b-it-GGUF",
+            "--port",
+            str(get_port_no("model")),
+        ]
+    )
 
 
 def launch_all():
@@ -60,15 +67,15 @@ def launch_all():
     launch_wrapper()
     print("launched wrapper")
 
-    # launch_model()
-    # print("launched model")
-
+    launch_model()
+    print("launched model")
 
     from time import sleep
+
     sleep(2)
     print("----------------")
     client()
-    
+
     load_thread.join()
     tmb_thread.join()
 
@@ -89,4 +96,3 @@ if __name__ == "__main__":
             launch_model()
         case _:
             launch_all()
-

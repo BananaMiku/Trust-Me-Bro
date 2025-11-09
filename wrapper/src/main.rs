@@ -91,7 +91,10 @@ async fn push_handler(
     if let Ok(res) = res {
         axum::response::Response::builder()
             .header("Content-Type", "application/json")
-            .body(format!("{:?}", res.into_body()))
+            .body(
+                String::from_utf8(res.into_body().collect().await.unwrap().to_bytes().to_vec())
+                    .unwrap(),
+            )
             .unwrap()
     } else {
         axum::response::Response::builder()
@@ -102,9 +105,14 @@ async fn push_handler(
 }
 
 async fn call_model(original: String, model_port: u16) -> hyper::Response<Incoming> {
+<<<<<<< HEAD
     print!("calling model");
     let url = format!("http://localhost:{}/v1/chat/completion", model_port);
     let stream = TcpStream::connect(&url).await.unwrap();
+=======
+    //let stream = TcpStream::connect(format!("localhost:{}", model_port))
+    let stream = TcpStream::connect("localhost:3222").await.unwrap();
+>>>>>>> 0221465 (ifixex things)
     let io = TokioIo::new(stream);
     let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
     tokio::task::spawn(async move {
@@ -113,12 +121,13 @@ async fn call_model(original: String, model_port: u16) -> hyper::Response<Incomi
         }
     });
 
+    let url = format!("http://localhost:{}/v1/chat/completions", model_port);
     let authority = url.parse::<Uri>().unwrap().authority().unwrap().clone();
 
     // Create an HTTP request with an empty body and a HOST header
     let req = Request::builder()
-        .method("GET")
-        .uri(url.clone())
+        .method("POST")
+        .uri("/v1/chat/completions")
         .header(hyper::header::HOST, authority.as_str())
         .body(http_body_util::Full::new(Bytes::from(original)))
         .unwrap();
@@ -126,7 +135,12 @@ async fn call_model(original: String, model_port: u16) -> hyper::Response<Incomi
     // Await the response...
     let res = sender.send_request(req).await.unwrap();
 
+<<<<<<< HEAD
     println!("Model Response status: {}", res.status());
+=======
+    println!("Response status: {}", res.status());
+    println!("rust response!! {:?}", res.body());
+>>>>>>> 0221465 (ifixex things)
     res.into()
 }
 

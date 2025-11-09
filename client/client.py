@@ -28,9 +28,9 @@ if __name__ == "__main__":
         userInput = input()
         messages.append({"role": "user", "content": userInput})
         to_send = InternalRequest(
-            original=f"{{'messages': {json.dumps(messages)}}}",
+            original=f'{{"messages": {json.dumps(messages)}}}',
             uuid="id 1",
-            model="gpt5",
+            model="a",
         )
         print("client sending request")
         print("client received request", send_prompt_request(to_send))
