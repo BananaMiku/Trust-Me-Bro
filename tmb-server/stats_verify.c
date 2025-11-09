@@ -60,6 +60,28 @@ int main(int argcnt, char *argls[]) {
     printf("Inference for GPU data %.3f → %s\n",
            gpuData, gpuInference ? "ACCEPTED" : "REJECTED");
 
+
+    // ------------------------------------------------------------
+    // POWER DRAW SECTION
+    // ------------------------------------------------------------
+    printf("\n=== POWER DRAW ANALYSIS ===\n");
+
+    // Fit a bimodal Gaussian model to power draw data
+    BimodalParams powerParams = bimodalFitPower(&buffer);
+
+    // Print the fitted parameters
+    printf("Power Draw Phases:\n");
+    printf("  Phase 1: mean = %.3f, std = %.3f, weight = %.3f\n",
+        powerParams.mean1, powerParams.std1, powerParams.weight1);
+    printf("  Phase 2: mean = %.3f, std = %.3f, weight = %.3f\n",
+        powerParams.mean2, powerParams.std2, powerParams.weight2);
+
+    // Perform inference on a sample power draw value
+    double powerData = 0.65;
+    bool powerInference = bimodalPowerInference(powerData, powerParams);
+    printf("Inference for Power Draw data %.3f → %s\n",
+        powerData, powerInference ? "ACCEPTED" : "REJECTED");
+
     // ------------------------------------------------------------
     // VRAM SECTION
     // ------------------------------------------------------------

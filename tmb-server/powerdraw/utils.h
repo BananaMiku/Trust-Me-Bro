@@ -2,23 +2,30 @@
 #define POWERDRAW_UTILS_H
 
 #include "./../stats_verify.h"
-#include "./../utils.h"
 #include <stdbool.h>
 
 /*
-Using MOM for t, alpha, and beta 
+Struct to store parameters for a two-phase bimodal Gaussian model
 */
-betaParams betaDistroPower(DataBuffer *self);
+typedef struct {
+    double mean1;   // mean of phase 1
+    double std1;    // standard deviation of phase 1
+    double mean2;   // mean of phase 2
+    double std2;    // standard deviation of phase 2
+    double weight1; // weight of phase 1 (fraction of points)
+    double weight2; // weight of phase 2 (fraction of points)
+} BimodalParams;
 
 /*
-Helper method for the probability density function of a beta(0, 1) distribution
-Returns probability of seeing the given data point on a cut off threshold
+Fit a bimodal Gaussian model to power draw data
+Returns the estimated parameters
 */
-double betaLogPDF_Power(double data, double alpha, double beta);
+BimodalParams bimodalFitPower(DataBuffer *self);
 
 /*
-PDF inference on incoming data
+Perform inference: check if a given power draw value is likely
+according to the fitted bimodal Gaussian model
 */
-bool betaDistroPowerInference(double data, betaParams params);
+bool bimodalPowerInference(double x, BimodalParams params);
 
 #endif
