@@ -2,7 +2,6 @@
 
 import hashlib
 import yaml
-from typing import Dict
 import struct
 import ecdsa
 import os
