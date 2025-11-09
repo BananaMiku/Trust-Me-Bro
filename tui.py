@@ -21,6 +21,9 @@ from utils import (
     set_mode,
 )
 
+from launcher import (launch_model, launch_model_b)
+
+
 class Prompt(Label):
     def __init__(self, prompt: str, model: str) -> None:
         super().__init__(prompt)
@@ -115,6 +118,15 @@ class InputApp(App):
         # gets the model
         select_widget = self.query_one(Select)
         model = select_widget.value
+
+        # kill old model and start new model :)
+        import subprocess
+        subprocess.Popen(["killall", "llama-server"])
+        if model == "a":
+            launch_model_b()
+        else:
+            launch_model()
+
 
         #updates scroll with our msg
         scroll = self.query_one("#messages", VerticalScroll)
