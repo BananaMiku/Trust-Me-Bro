@@ -15,9 +15,9 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use std::net::SocketAddr;
 use std::process::Command;
 use std::sync::Arc;
+use std::{net::SocketAddr, process::Stdio};
 
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpStream;
@@ -213,10 +213,42 @@ async fn nvidia(
                 break;
             }
             _ = sleep(Duration::from_secs(1)) => {
-                println!("b");
-                // let smi_out = String::from_utf8(smi.output().expect("unable to execute nvidia_smi").stdout).unwrap();
-                let smi_out = "GPU-09dfe69f-a29c-c23f-35a4-c5b79af54d34, NVIDIA GeForce RTX 4080 SUPER, 1, 0, 642, 5.57, 35";
-                let items: Vec<&str> = smi_out.split(", ").collect();
+
+                // let mut ts = Command::new("tegrastats")
+                //     .arg("--interval")
+                //     .arg("1")
+                //     .stdout(Stdio::piped())
+                //     .spawn().unwrap();
+                let mut ts = Command::new("echo")
+                    .arg("'11-09-2025 00:00:29 RAM 3058/7620MB (lfb 37x4MB) CPU [somestuff] GR 12% cpu soc soc gpu tj soc VDDIN 5080mW/5080mW VDD_CPU 603mW/603mW VDD_SOC 1449mW/1449mW'")
+                    .stdout(Stdio::piped())
+                    .spawn().unwrap();
+
+                let head = Command::new("head")
+                    .arg("-n")
+                    .arg("1")
+                    .stdin(Stdio::from(ts.stdout.take().unwrap()))
+                    .stdout(Stdio::piped())
+                    .spawn().unwrap();
+
+                let output = head.wait_with_output().unwrap();
+                let ts_out = str::from_utf8(&output.stdout).unwrap();
+
+                let items: Vec<&str> = ts_out.split(" ").collect();
+                let rams_s: &str = items.get(3).unwrap();
+                let nums: Vec<f64> = rams_s[..rams_s.find('M').unwrap()]
+                    .split('/')
+                    .map(|x| x.parse::<f64>().unwrap())
+                    .collect();
+                let ram = nums[0] / nums[1];
+                let gpu = items.get(9).unwrap().trim_end_matches('%').parse::<f64>().unwrap() / 100.0;
+                let draw_s: &str = items.get(21).unwrap();
+                let draw = draw_s[..draw_s.find('m').unwrap()].parse::<f64>().unwrap();
+
+                // 3 is ram
+                // 8 is GPU utilization
+                // 16 is VIN
+                // 20 is VDD_SOC
 
                 let stream = TcpStream::connect("localhost:3823").await.unwrap();
                 let io = TokioIo::new(stream);
@@ -228,9 +260,7 @@ async fn nvidia(
                 });
                 let authority = url.authority().unwrap().clone();
                 let report = format!("{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}}}",
-                    items.get(2).unwrap(),
-                    items.get(5).unwrap(),
-                    items.get(6).unwrap(), uuid, model);
+                    gpu, ram, draw, uuid, model);
 
                 println!("{}", report);
 
