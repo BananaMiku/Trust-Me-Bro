@@ -85,13 +85,13 @@ async fn push_handler(
     }
 
     // let model_request = tokio::spawn(call_model(payload.original, port_no));
-    // let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no));
+    let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no));
 
     //end when we get network
     sleep(Duration::from_millis(1_500)).await;
     // let res = model_request.await;
     let _ = stop_tx.send(()); //kills nvidia thread
-    // let _ = nvidia_thread.await;
+    let _ = nvidia_thread.await;
 
     // if let Ok(res) = res {
     //     return (
@@ -199,7 +199,7 @@ async fn nvidia(
                     .uri("/finished")
                     .header(hyper::header::HOST, authority.as_str())
                     .header(hyper::header::CONTENT_TYPE, "application/json")
-                    .body(http_body_util::Full::new(Bytes::from(uuid))).unwrap();
+                    .body(http_body_util::Full::new(Bytes::from(format!("{{\"userID\": \"{}\"}}", uuid)))).unwrap();
 
                 let _res = sender.send_request(req).await.unwrap();
                 break;

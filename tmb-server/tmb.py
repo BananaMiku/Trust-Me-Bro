@@ -114,7 +114,7 @@ async def metrics(smiData: SMIData):
 
     session = pendingRequests[userID]
     session["Cache"].append({
-        "Model": smiData.uuid.model,
+        "model": smiData.uuid.model,
         "gpuUtilization": smiData.gpuUtilization,
         "vramUsage": smiData.vramUsage,
         "powerDraw": smiData.powerDraw,
@@ -182,9 +182,15 @@ async def metrics(smiData: SMIData):
 #         log.error(f"Error Executing C Binary: {e}")
 #         return e
 
+
+class FINISH(BaseModel):
+    userID: str
+
 # continuously ingest data at /metric endpoint until /finished is hit
 @tmb.post("/finished")
-async def finished(userID: str):
+async def finished(req: FINISH):
+    userID = req.userID
+    print("called finish")
     if userID not in pendingRequests:
         raise HTTPException(status_code=400, detail="No Active Session")
 
@@ -209,6 +215,7 @@ async def finished(userID: str):
     cFile = os.path.join(baseDir, "stats_verify.c")
     cExecutable = os.path.join(baseDir, "stats_verify")
     try:
+        print("its doing a log")
         log.info("Compiling C File...")
         subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
         
@@ -230,6 +237,7 @@ async def finished(userID: str):
                                 check=True)
         verification = result.stdout.strip()
         session["Verification"] = verification
+        print("sets event")
         session["Event"].set()  # release clientRequest waiter
         return {"Result": verification}
     except subprocess.CalledProcessError:
