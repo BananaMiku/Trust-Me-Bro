@@ -151,12 +151,14 @@ async def finished(req: FINISH, request: Request):
     userID = req.userID
     log.info(f"{userID} Reached /finished")
     if userID not in pendingRequests:
+        print("THIS ONE HERE")
         raise HTTPException(status_code=400, detail="No Active Session")
 
     session = pendingRequests[userID]
     cache = session["Cache"]
 
     if not cache:
+        print("THIS OHTER ONE")
         raise HTTPException(status_code=400, detail="No Data Received")
 
     # find average

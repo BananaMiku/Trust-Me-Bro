@@ -168,10 +168,91 @@ async fn nvidia(
 
     let mutex = Mutex::new(0);
 
+    let test = async || {
+        println!("---profiling---");
+        // let mut ts = Command::new("tegrastats")
+        //     .arg("--interval")
+        //     .arg("1")
+        //     .stdout(Stdio::piped())
+        //     .spawn().unwrap();
+        let mut ts = Command::new("echo")
+            .arg("'11-09-2025 00:00:29 RAM 3058/7620MB (lfb 37x4MB) CPU [somestuff] GR 12% cpu soc soc gpu tj soc VDDIN 5080mW/5080mW VDD_CPU 603mW/603mW VDD_SOC 1449mW/1449mW'")
+            .stdout(Stdio::piped())
+            .spawn().unwrap();
+
+        let head = Command::new("head")
+            .arg("-n")
+            .arg("1")
+            .stdin(Stdio::from(ts.stdout.take().unwrap()))
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let output = head.wait_with_output().unwrap();
+        let ts_out = str::from_utf8(&output.stdout).unwrap();
+
+        let items: Vec<&str> = ts_out.split(" ").collect();
+        let rams_s: &str = items.get(3).unwrap();
+        let nums: Vec<f64> = rams_s[..rams_s.find('M').unwrap()]
+            .split('/')
+            .map(|x| x.parse::<f64>().unwrap())
+            .collect();
+        let ram = nums[0] / nums[1];
+        let gpu = items
+            .get(9)
+            .unwrap()
+            .trim_end_matches('%')
+            .parse::<f64>()
+            .unwrap()
+            / 100.0;
+        let draw_s: &str = items.get(21).unwrap();
+        let draw = draw_s[..draw_s.find('m').unwrap()].parse::<f64>().unwrap();
+
+        // 3 is ram
+        // 8 is GPU utilization
+        // 16 is VIN
+        // 20 is VDD_SOC
+
+        let stream = TcpStream::connect("localhost:3823").await.unwrap();
+        let io = TokioIo::new(stream);
+        let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
+        tokio::task::spawn(async move {
+            if let Err(err) = conn.await {
+                println!("Connection failed: {:?}", err);
+            }
+        });
+        let authority = url.authority().unwrap().clone();
+        let report = format!(
+            "{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}}}",
+            gpu, ram, draw, uuid, model
+        );
+
+        println!("nvidia report: {}", report);
+
+        // Create an HTTP request with an empty body and a HOST header
+        let req = Request::builder()
+            .method("POST")
+            .uri("/metrics")
+            .header(hyper::header::HOST, authority.as_str())
+            .header(hyper::header::CONTENT_TYPE, "application/json")
+            .body(http_body_util::Full::new(Bytes::from(report)))
+            .unwrap();
+
+        // Await the response...
+        let mut lock = mutex.lock().await;
+        let res = sender.send_request(req).await.unwrap();
+
+        *lock += 1;
+
+        println!("Nvidia Response status: {}", res.status());
+    };
+
     loop {
         tokio::select! {
             _ = &mut stop_rx => {
                 println!("killing nvidia query");
+                test().await;
+
                 let stream = TcpStream::connect("localhost:3823").await.unwrap();
                 let io = TokioIo::new(stream);
                 let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
@@ -196,72 +277,7 @@ async fn nvidia(
                 break;
             }
             _ = sleep(Duration::from_secs(1)) => {
-
-                // let mut ts = Command::new("tegrastats")
-                //     .arg("--interval")
-                //     .arg("1")
-                //     .stdout(Stdio::piped())
-                //     .spawn().unwrap();
-                let mut ts = Command::new("echo")
-                    .arg("'11-09-2025 00:00:29 RAM 3058/7620MB (lfb 37x4MB) CPU [somestuff] GR 12% cpu soc soc gpu tj soc VDDIN 5080mW/5080mW VDD_CPU 603mW/603mW VDD_SOC 1449mW/1449mW'")
-                    .stdout(Stdio::piped())
-                    .spawn().unwrap();
-
-                let head = Command::new("head")
-                    .arg("-n")
-                    .arg("1")
-                    .stdin(Stdio::from(ts.stdout.take().unwrap()))
-                    .stdout(Stdio::piped())
-                    .spawn().unwrap();
-
-                let output = head.wait_with_output().unwrap();
-                let ts_out = str::from_utf8(&output.stdout).unwrap();
-
-                let items: Vec<&str> = ts_out.split(" ").collect();
-                let rams_s: &str = items.get(3).unwrap();
-                let nums: Vec<f64> = rams_s[..rams_s.find('M').unwrap()]
-                    .split('/')
-                    .map(|x| x.parse::<f64>().unwrap())
-                    .collect();
-                let ram = nums[0] / nums[1];
-                let gpu = items.get(9).unwrap().trim_end_matches('%').parse::<f64>().unwrap() / 100.0;
-                let draw_s: &str = items.get(21).unwrap();
-                let draw = draw_s[..draw_s.find('m').unwrap()].parse::<f64>().unwrap();
-
-                // 3 is ram
-                // 8 is GPU utilization
-                // 16 is VIN
-                // 20 is VDD_SOC
-
-                let stream = TcpStream::connect("localhost:3823").await.unwrap();
-                let io = TokioIo::new(stream);
-                let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
-                tokio::task::spawn(async move {
-                    if let Err(err) = conn.await {
-                        println!("Connection failed: {:?}", err);
-                    }
-                });
-                let authority = url.authority().unwrap().clone();
-                let report = format!("{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}}}",
-                    gpu, ram, draw, uuid, model);
-
-                println!("nvidia report: {}", report);
-
-                // Create an HTTP request with an empty body and a HOST header
-                let req = Request::builder()
-                    .method("POST")
-                    .uri("/metrics")
-                    .header(hyper::header::HOST, authority.as_str())
-                    .header(hyper::header::CONTENT_TYPE, "application/json")
-                    .body(http_body_util::Full::new(Bytes::from(report))).unwrap();
-
-                // Await the response...
-                let mut lock = mutex.lock().await;
-                let res = sender.send_request(req).await.unwrap();
-
-                *lock += 1;
-
-                println!("Nvidia Response status: {}", res.status());
+                test().await;
             }
         }
     }
