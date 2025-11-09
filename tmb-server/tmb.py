@@ -93,6 +93,7 @@ async def clientRequest(uuid: UUID):
     userID = uuid.userID
     log.info(f"{userID} Reached /clientRequest")
     if userID not in pendingRequests:
+        log.info("/clientRequest Creating New Event")
         pendingRequests[userID] = {
             "Event": asyncio.Event(),
             "Cache": [],
@@ -121,6 +122,7 @@ async def metrics(smiData: SMIData):
     userID = smiData.uuid.userID
     log.info(f"{userID} Reached /metrics")
     if userID not in pendingRequests:
+        log.info("/metrics Creating New Event")
         pendingRequests[userID] = {
             "Event": asyncio.Event(),
             "Cache": [],
@@ -175,7 +177,11 @@ async def finished(req: FINISH, request: Request):
     baseDir = os.path.dirname(os.path.abspath(__file__))
     cFile = os.path.join(baseDir, "stats_verify.c")
     cExecutable = os.path.join(baseDir, "stats_verify")
+    # check if storage file need ../ in case of failure
     storageFile = os.path.join(baseDir, f"{model}_storage.csv")
+    log.info(f"C File Located at: {cFile}")
+    log.info(f"C Executable Located at: {cExecutable}")
+    log.info(f"Storage File Located at: {storageFile}")
     try:
         log.info("Compiling C File...")
         # build dependencies
@@ -192,10 +198,11 @@ async def finished(req: FINISH, request: Request):
             ).strip()
             flags = shlex.split(pkg_flags)
         except Exception as e:
-            log.error(f"Install GSL on Your Machine: {e}")
+            log.error(f"Error. Try Install GSL on Your Machine: {e}")
             return e
         # build gcc command
         cmd = ["gcc", cFile, *deps, "-o", cExecutable, *flags]
+        log.info(f"Python Subprocess Running Command: {cmd}")
         subprocess.run(cmd, check=True)
         # subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
     except subprocess.CalledProcessError as e:
