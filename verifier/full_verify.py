@@ -5,6 +5,7 @@ import yaml
 from typing import Dict
 import struct
 import ecdsa
+import os
 
 class PCRVerifier:
     def __init__(self):
@@ -52,57 +53,72 @@ class PCRVerifier:
         # Update the PCR with the new value
         self.pcr_banks[algorithm][pcr_index] = hasher.digest()
 
-    def get_pcr_value(self, pcr_index: int, algorithm: str) -> str:
+    def get_pcr_value(self, pcr_index: int, algorithm: str) -> bytes:
         """Get the current value of a PCR as a hex string."""
         if algorithm not in self.pcr_banks:
             raise ValueError(f"Unsupported hash algorithm: {algorithm}")
-        return self.pcr_banks[algorithm][pcr_index].hex()
+        return self.pcr_banks[algorithm][pcr_index]
+
+def parse_ima_ng(data_bytes: bytes):
+    data_hash_length = struct.unpack("<I", data_bytes[:4])[0]
+    data_hash_algorithm = data_bytes[4 : 4 + data_hash_length].split(b"\x00")[0]
+    data_hash = data_bytes[4 + len(data_hash_algorithm) + 1 : 4 + data_hash_length]
+    name_length = struct.unpack("<I", data_bytes[4 + data_hash_length : 4 + data_hash_length + 4])[0]
+    name = data_bytes[4 + data_hash_length + 4 : 4 + data_hash_length + 4 + name_length - 1]
+    return data_hash, name
 
 bootroot="shared"
 def main():
     verifier = PCRVerifier()
 
-    verifying_key = open(f"{bootroot}/signing_key.pem", "r").read()
-    verifying_key = ecdsa.VerifyingKey.from_pem(verifying_key)
-
-    print(f"{verifying_key.curve=}")
-
-    signature = open(f"{bootroot}/tpm2_pcr_signature", "rb").read()
-    print(f"{signature.hex()=}")
+    pcr_data = open(f"{bootroot}/tpm2_pcr_data", "rb").read()
+    expected_pcr_values = []
+    print("===PCR Report===")
+    for i in range(13):
+        print(f"PCR{i:02d}: {pcr_data[20 * i: 20 * i + 20].hex()}")
+        expected_pcr_values.append(pcr_data[20 * i: 20 * i + 20])
+    print("===END PCR Report===")
 
     pcr_summary = open(f"{bootroot}/tpm2_pcr_message", "rb").read()
-    print(f"{pcr_summary.hex()=}")
 
-    pcr_data = open(f"{bootroot}/tpm2_pcr_data", "rb").read()
-    print(f"{pcr_data.hex()=}")
+    quote_hash_algorithm = hashlib.sha256
+    calculated_pcr_hash = quote_hash_algorithm()
+    calculated_pcr_hash.update(pcr_data)
+    calculated_pcr_hash = calculated_pcr_hash.digest()
 
-    verifying_key.verify(signature, pcr_summary, hashfunc=hashlib.sha256, sigdecode=ecdsa.util.sigdecode_der)
-    # verifying_key.verify(signature, pcr_summary, sigdecode=ecdsa.util.sigdecode_der)
+    expected_pcr_hash = pcr_summary[-len(calculated_pcr_hash):]
+    assert(calculated_pcr_hash == expected_pcr_hash)
+    print("PCR banks match quote")
 
-    exit(0)
+    verifying_key = open(f"{bootroot}/signing_key.pem", "rb").read()
+    verifying_key = ecdsa.VerifyingKey.from_pem(verifying_key)
 
+    signature = open(f"{bootroot}/tpm2_pcr_signature", "rb").read()
+
+    verifying_key.verify(signature, pcr_summary, hashfunc=quote_hash_algorithm, sigdecode=ecdsa.util.sigdecode_der)
+    print("signature of quote verified against key")
 
     # Ensure boot logs have valid hashes and such
     with open(f"{bootroot}/secure_boot", "rb") as secure_boot:
         pcr_index = struct.unpack("<I", secure_boot.read(4))[0]
-        print(f"{pcr_index=}")
+        # print(f"{pcr_index=}")
         event_type = struct.unpack("<I", secure_boot.read(4))[0]
-        print(f"{event_type=}")
+        # print(f"{event_type=}")
         initial_digest =  secure_boot.read(20)
-        print(f"{initial_digest=}")
+        # print(f"{initial_digest=}")
         event_size = struct.unpack("<I", secure_boot.read(4))[0]
-        print(f"{event_size=}")
+        # print(f"{event_size=}")
         event_data = secure_boot.read(event_size + 4)
-        print(f"{event_data.hex()=}")
-        # TODO finish parsing
+        # print(f"{event_data.hex()=}")
+        # TODO finish parsing boot logs
 
     # Ensure that signature corresponds to data
 
-    with open(f"{bootroot}/secure_boot.yaml", "r") as secure_boot_yaml:
-        log_data = yaml.safe_load(secure_boot_yaml)
+    secure_boot_logs = open(f"{bootroot}/secure_boot.yaml", "rb")
+    secure_boot_logs = yaml.safe_load(secure_boot_logs)
 
     # Process each event in the log
-    for event in log_data['events']:
+    for event in secure_boot_logs['events']:
         pcr_index = event['PCRIndex']
         
         # Handle different digest formats in the log
@@ -113,49 +129,71 @@ def main():
                 if algo in verifier.pcr_banks:
                     verifier.extend_pcr(pcr_index, algo, digest_entry['Digest'])
     
-    for i in range(1, 10):
+    for i in range(10):
         calculated_pcr_value = verifier.get_pcr_value(i, "sha1")
-        signed_pcr_value = signature["pcrs"]["sha1"][i]
-        signed_pcr_value = signed_pcr_value.to_bytes(20)
-        signed_pcr_value = signed_pcr_value.hex()
-        # print(f"expected PCR{i}={signed_pcr_value}")
-        # print(f"actual   PCR{i}={calculated_pcr_value}")
-        assert calculated_pcr_value == signed_pcr_value
+        expected_pcr_value = expected_pcr_values[i]
+        assert calculated_pcr_value == expected_pcr_value
     
-    print("PCR values match!")
+    print("PCR is consistent with boot log")
 
     # Validate Measurement Log
+    matches = set()
+    latest_file_hashes = dict()
     with open(f"{bootroot}/measurements", "rb") as measurements_file:
-        while True:
-            first_chunk = measurements_file.read(4)
-            if not first_chunk:
-                break
-            pcr_index = struct.unpack("<I", first_chunk)[0]
-            # print(f"{pcr_index=}")
+        while measurements_file.read(1):
+            measurements_file.seek(-1, os.SEEK_CUR)
+
+            pcr_index = struct.unpack("<I", measurements_file.read(4))[0]
             template_data_hash = measurements_file.read(20)
-            # print(f"{template_data_hash.hex()=}")
             template_name_length = struct.unpack("<I", measurements_file.read(4))[0]
-            # print(f"{template_name_length=}")
             template_name = measurements_file.read(template_name_length)
-            # print(f"{template_name=}")
             template_data_length = struct.unpack("<I", measurements_file.read(4))[0]
-            # print(f"{template_data_length=}")
             template_data = measurements_file.read(template_data_length)
-            # print(f"{template_data=}")
+
+            if pcr_index in matches:
+                continue
+
+            if template_name == b"ima-ng":
+                file_data_hash, file_name = parse_ima_ng(template_data)
+                # print(f"{file_data_hash.hex()=}")
+                # print(f"{file_name=}")
+                if file_data_hash != b"\x00" * 20:
+                    latest_file_hashes[file_name] = file_data_hash
+
             hash_algorithm = hashlib.sha1()
             hash_algorithm.update(template_data)
             actual_hash = hash_algorithm.digest()
+
             # print(f"{actual_hash.hex()=}")
 
             # print(f"expected digest={template_data_hash}")
             # print(f"actual   digest={actual_hash}")
             assert template_data_hash == actual_hash or template_data_hash == b"\x00" * 20
+
+            # This is an important undocumented quirk I found when looking at 
+            actual_extension = b"\xff" * 20 if template_data_hash == b"\x00" * 20 else template_data_hash
+            verifier.extend_pcr(pcr_index, "sha1", actual_extension.hex())
     
+            for i in range(10, 13):
+                calculated_pcr_value = verifier.get_pcr_value(i, "sha1")
+                expected_pcr_value = expected_pcr_values[i]
+                if calculated_pcr_value == expected_pcr_value:
+                    matches.add(i)
+
+    assert matches == set(range(10, 13)), set(range(10, 13)) - matches
+
     print("Measurement log hash values match!")
 
-
-
-
+    audit_log_hash = hashlib.sha256()
+    with open(f"{bootroot}/audit_log.txt", "rb") as audit_log_file:
+        while line := audit_log_file.readline():
+            audit_log_hash.update(line)
+            current_audit_log_hash = audit_log_hash.digest()
+            if current_audit_log_hash == latest_file_hashes[b"/var/log/audit/audit.log"]:
+                break
+        else:
+            assert False, "audit log is not attested to!"
+    print("audit log verified!")
 
     # print(verifier.get_pcr_value(1, "sha1"))
     # print(verifier.get_pcr_value(2, "sha1"))
