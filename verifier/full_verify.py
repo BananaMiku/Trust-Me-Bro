@@ -6,6 +6,7 @@ from typing import Dict
 import struct
 import ecdsa
 import os
+import re
 
 class PCRVerifier:
     def __init__(self):
@@ -101,16 +102,37 @@ def main():
     # Ensure boot logs have valid hashes and such
     with open(f"{bootroot}/secure_boot", "rb") as secure_boot:
         pcr_index = struct.unpack("<I", secure_boot.read(4))[0]
-        # print(f"{pcr_index=}")
+        print(f"{pcr_index=}")
         event_type = struct.unpack("<I", secure_boot.read(4))[0]
-        # print(f"{event_type=}")
+        print(f"{event_type=}")
         initial_digest =  secure_boot.read(20)
-        # print(f"{initial_digest=}")
+        print(f"{initial_digest=}")
         event_size = struct.unpack("<I", secure_boot.read(4))[0]
-        # print(f"{event_size=}")
-        event_data = secure_boot.read(event_size + 4)
-        # print(f"{event_data.hex()=}")
-        # TODO finish parsing boot logs
+        print(f"{event_size=}")
+        event_data = secure_boot.read(event_size)
+        print(f"{event_data.hex()=}")
+
+        secure = False
+        while secure_boot.read(1):
+            secure_boot.seek(-1, os.SEEK_CUR)
+            pcr_index = struct.unpack("<I", secure_boot.read(4))[0]
+            print(f"{pcr_index=}")
+            event_type = struct.unpack("<I", secure_boot.read(4))[0]
+            print(f"{event_type=}")
+            digest_count = struct.unpack("<I", secure_boot.read(4))[0]
+            print(f"{digest_count=}")
+            digest_dump = secure_boot.read(172)
+            print(f"{digest_dump.hex()=}")
+            event_size = struct.unpack("<I", secure_boot.read(4))[0]
+            print(f"{event_size=}")
+            event_data = secure_boot.read(event_size)
+            # this is a terrible business logic but this is a hackathon
+            try:
+                if re.search("/boot/vmlinuz.*lsm=integrity ima_policy=tcb", event_data.decode(encoding="ascii")):
+                    print(f"{event_data=}")
+            except:
+                pass
+
 
     # Ensure that signature corresponds to data
 
@@ -140,6 +162,7 @@ def main():
     matches = set()
     latest_file_hashes = dict()
     with open(f"{bootroot}/measurements", "rb") as measurements_file:
+        # TODO add crypto business logic
         while measurements_file.read(1):
             measurements_file.seek(-1, os.SEEK_CUR)
 
@@ -194,6 +217,8 @@ def main():
         else:
             assert False, "audit log is not attested to!"
     print("audit log verified!")
+
+    # TODO add business logic
 
     # print(verifier.get_pcr_value(1, "sha1"))
     # print(verifier.get_pcr_value(2, "sha1"))
