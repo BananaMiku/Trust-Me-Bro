@@ -71,7 +71,7 @@ def parse_ima_ng(data_bytes: bytes):
     name = data_bytes[4 + data_hash_length + 4 : 4 + data_hash_length + 4 + name_length - 1]
     return data_hash, name
 
-bootroot = None
+proof_file_location = None
 rofiles = [b"/etc/audit/rules.d/audit.rules",
            b"/var/log/audit/audit.log"]
 def main():
