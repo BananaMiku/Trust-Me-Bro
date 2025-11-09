@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use tokio::sync::oneshot;
 use tokio::time::{Duration, sleep};
 
@@ -180,6 +181,8 @@ async fn nvidia(
     let stream = TcpStream::connect("localhost:3823").await.unwrap();
     let io = TokioIo::new(stream);
 
+    let mutex = Mutex::new(0);
+
     println!("b");
     let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
     tokio::task::spawn(async move {
@@ -201,7 +204,11 @@ async fn nvidia(
                     .header(hyper::header::CONTENT_TYPE, "application/json")
                     .body(http_body_util::Full::new(Bytes::from(format!("{{\"userID\": \"{}\"}}", uuid)))).unwrap();
 
+                let mut lock = mutex.lock().await;
                 let _res = sender.send_request(req).await.unwrap();
+
+                *lock += 1;
+
                 break;
             }
             _ = sleep(Duration::from_secs(1)) => {
@@ -229,7 +236,10 @@ async fn nvidia(
                 println!("{:?}", req);
 
                 // Await the response...
+                let mut lock = mutex.lock().await;
                 let res = sender.send_request(req).await.unwrap();
+
+                *lock += 1;
 
                 println!("Response status: {}", res.status());
             }
