@@ -1,0 +1,7 @@
+cffi==2.0.0
+cryptography==46.0.3
+ecdsa==0.19.1
+pycparser==2.23
+PyYAML==6.0.3
+six==1.17.0
+types-PyYAML==6.0.12.20250915
