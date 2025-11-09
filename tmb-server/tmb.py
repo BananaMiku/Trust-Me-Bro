@@ -1,7 +1,6 @@
-import subprocess
+import subprocess, os, shlex
 import asyncio
 import structlog
-import os
 import random
 import pandas as pd
 from fastapi import FastAPI, HTTPException
@@ -25,14 +24,13 @@ reservoir_size = 10
 pendingRequests: dict[str, dict] = {}
 
 async def cache_and_average(userID, model, gpuUtilization, vramUsage, powerDraw):
+    # data normalized from rust side
     session = pendingRequests[userID]
-    # normalize gpuUtilization to 0 and 1
-    # normalize vramUsage to 0 and 1
     async with session["Lock"]:
         session["Cache"].append({
             "Model": model,
-            "gpuUtilization": gpuUtilization / 100.0,
-            "vramUsage": vramUsage / 100.0,
+            "gpuUtilization": gpuUtilization,
+            "vramUsage": vramUsage,
             "powerDraw": powerDraw,
         })
 
@@ -78,6 +76,7 @@ def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
 
 @tmb.post("/clientRequest")
 async def clientRequest(uuid: UUID):
+    print("hit clientRequest")
     userID = uuid.userID
     if userID not in pendingRequests:
         pendingRequests[userID] = {
@@ -88,7 +87,8 @@ async def clientRequest(uuid: UUID):
 
     session = pendingRequests[userID]
     try:
-        await asyncio.wait_for(session["Event"].wait(), timeout=6)
+        await asyncio.wait_for(session["Event"].wait(), timeout=3)
+        print(f"curr sesh: {pendingRequests}")
         return {"Verified": session["Verification"]}
     except asyncio.TimeoutError:
         err = "Verification Process Timed Out"
@@ -104,6 +104,7 @@ async def clientRequest(uuid: UUID):
 # incoming data from LLM server
 @tmb.post("/metrics")
 async def metrics(smiData: SMIData):
+    print("hit metrics")
     userID = smiData.uuid.userID
     if userID not in pendingRequests:
         pendingRequests[userID] = {
@@ -122,66 +123,6 @@ async def metrics(smiData: SMIData):
     })
 
     return {"message": "Receiving Data"}
-
-# # incoming data from LLM server
-# @tmb.post("/metrics")
-# async def metrics(smiData: SMIData):
-#     userID = smiData.uuid.userID
-#     model = smiData.uuid.model
-#     gpuUtilization = smiData.gpuUtilization
-#     vramUsage =smiData.vramUsage
-#     powerDraw = smiData.powerDraw
-#     if userID not in pendingRequests:
-#         # this technically should not happen?
-#         return "IDK man what?"
-    
-#     event, _ = pendingRequests[userID]
-#     # stats_verify is the compiled c code for stats verification
-#     # compile c file
-#     baseDir = os.path.dirname(os.path.abspath(__file__))
-#     cFile = os.path.join(baseDir, "stats_verify.c")
-#     cExecutable = os.path.join(baseDir, "stats_verify")
-#     try:
-#         log.info("Compiling C File...")
-#         subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
-        
-#     except subprocess.CalledProcessError as e:
-#         log.error(f"Error Compiling C File: {e}")
-#         return e
-    
-#     # build arguments for c file
-#     # convert to str for subprocess.run
-#     cache_and_average(userID, model, gpuUtilization, vramUsage, powerDraw)
-#     # await until finished is hit, then continue
-#     reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw)
-#     # TODO beta bound[0,1] for gpu utilization, normalize to this range if not already
-#     # clip any external values because why would it ever go outside of 0-1 after normalizing
-#     # cannot be 0 or 1, if 0, add small noise, if 1, subtract a small noise
-#     # the values are going to be averaged for this run
-#     arguments = [
-#         str(smiData.uuid.model + "_storage.csv"),
-#         str(smiData.gpuUtilization),
-#         str(smiData.vramUsage),
-#         str(smiData.powerDraw)
-#     ]
-    
-#     # execute c file
-#     try:
-#         result = subprocess.run([cExecutable] + arguments, 
-#                                 capture_output=True,
-#                                 text=True, 
-#                                 check=True)
-#         verification = result.stdout
-#         # update
-#         event, _ = pendingRequests[userID]
-#         pendingRequests[userID] = event, verification
-#         return verification
-#     except subprocess.CalledProcessError as e:
-#         log.error(f"C Standard Error: {e.stderr}")
-#         return e
-#     except Exception as e:
-#         log.error(f"Error Executing C Binary: {e}")
-#         return e
 
 
 class FINISH(BaseModel):
@@ -215,7 +156,8 @@ async def finished(req: FINISH):
     baseDir = os.path.dirname(os.path.abspath(__file__))
     cFile = os.path.join(baseDir, "stats_verify.c")
     cExecutable = os.path.join(baseDir, "stats_verify")
-    storageFile = os.path.join(baseDir, "gpt5-storage.csv")
+    storageFile = os.path.join(baseDir, f"{model}_storage.csv")
+    print(f"storage file! {storageFile}")
     try:
         print("its doing a log")
         log.info("Compiling C File...")
@@ -226,13 +168,22 @@ async def finished(req: FINISH):
         os.path.join(baseDir, "powerdraw", "utils.c"),
         os.path.join(baseDir, "vram", "utils.c"),
         ]
+        # get GSL flags
+        try:
+            pkg_flags = subprocess.check_output(
+                ["pkg-config", "--cflags", "--libs", "gsl"], text=True
+            ).strip()
+            flags = shlex.split(pkg_flags)
+        except Exception as e:
+            log.error(f"Install GSL on Your Machine: {e}")
+            return e
         # build gcc command
         cmd = [
             "gcc",
             cFile,
             *deps,
             "-o", cExecutable,
-            "-lgsl", "-lgslcblas", "-lm"
+            *flags
         ]
         subprocess.run(cmd, check=True)
         #subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
@@ -241,7 +192,7 @@ async def finished(req: FINISH):
         return e
     # build input arguments
     arguments = [
-        str(model + "_storage.csv"),
+        str(storageFile),
         str(gpuAvg),
         str(vramAvg),
         str(powerAvg)
@@ -251,10 +202,11 @@ async def finished(req: FINISH):
         result = subprocess.run([cExecutable] + arguments,
                                 capture_output=True,
                                 text=True,
-                                check=True)
-        verification = result.stdout.strip()
+                                check=True,
+                                cwd=baseDir)
+        verification = result.returncode
         # sums true + false, <= 1 means majority true
-        if int(verification) <= 1:
+        if verification <= 1:
             session["Verification"] = True
         else:
             session["Verification"] = False
@@ -265,6 +217,8 @@ async def finished(req: FINISH):
         return {"Verification Result": session["Verification"]}
     except subprocess.CalledProcessError as e:
         log.error(f"C Standard Error: {e.stderr}")
+        log.error(f"STDOUT: {e.stdout}")
+        log.error(f"STDERR: {e.stderr}")
         return e
     except Exception as e:
         log.error(f"Error Executing C Binary: {e}")

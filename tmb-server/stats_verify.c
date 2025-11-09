@@ -35,7 +35,6 @@ int main(int argcnt, char *argls[]) {
     double vramData = atof(argls[3]);
     double powerData = atof(argls[4]);
     //gsl_set_error_handler_off();
-    printf("Executing C Binary!\n");
     
     assert (argcnt == 5);
     DataBuffer buffer;
@@ -44,11 +43,6 @@ int main(int argcnt, char *argls[]) {
     DataBufferRead(&buffer, filePath);
     // DataBufferPrint(&buffer);
 
-    // betaParams params = betaDistroGPU(&buffer);
-    // double data = 0.5;
-    // bool foo = betaDistroGPUInference(data, params);
-    // printf("Checking bool bool: ");
-    // printf("%d", foo);
     // ------------------------------------------------------------
     // GPU UTILIZATION SECTION
     // ------------------------------------------------------------
@@ -60,10 +54,6 @@ int main(int argcnt, char *argls[]) {
     printf("Inference for GPU data %.3f → %s\n",
            gpuData, gpuInference ? "ACCEPTED" : "REJECTED");
 
-
-    // ------------------------------------------------------------
-    // VRAM SECTION
-    // ------------------------------------------------------------
     // ------------------------------------------------------------
     // VRAM USAGE SECTION
     // ------------------------------------------------------------
@@ -80,7 +70,6 @@ int main(int argcnt, char *argls[]) {
     // POWER DRAW SECTION
     // ------------------------------------------------------------
     printf("\n=== POWER DRAW ANALYSIS ===\n");
-
     // Fit a bimodal Gaussian model to power draw data
     BimodalParams powerParams = bimodalFitPower(&buffer);
 
@@ -98,8 +87,7 @@ int main(int argcnt, char *argls[]) {
 
     free(buffer.row);
     
-    printf("%d", (gpuInference + vramInference + powerInference));
-    return 0 ? gpuInference + vramInference + powerInference >= 2 : 1;
+    return gpuInference + vramInference + powerInference >= 2 ? 0 : 1;
 }
 
 /*
