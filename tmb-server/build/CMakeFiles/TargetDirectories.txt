@@ -1,0 +1,7 @@
+/Users/junyanglu/Documents/GitHub/Trust-Me-Bro/tmb-server/build/CMakeFiles/stats_verify.dir
+/Users/junyanglu/Documents/GitHub/Trust-Me-Bro/tmb-server/build/CMakeFiles/edit_cache.dir
+/Users/junyanglu/Documents/GitHub/Trust-Me-Bro/tmb-server/build/CMakeFiles/rebuild_cache.dir
+/Users/junyanglu/Documents/GitHub/Trust-Me-Bro/tmb-server/build/CMakeFiles/list_install_components.dir
+/Users/junyanglu/Documents/GitHub/Trust-Me-Bro/tmb-server/build/CMakeFiles/install.dir
+/Users/junyanglu/Documents/GitHub/Trust-Me-Bro/tmb-server/build/CMakeFiles/install/local.dir
+/Users/junyanglu/Documents/GitHub/Trust-Me-Bro/tmb-server/build/CMakeFiles/install/strip.dir
