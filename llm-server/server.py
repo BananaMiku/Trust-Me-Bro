@@ -15,7 +15,10 @@ def submit(data: InternalRequest, request: Request):
     print(request)
 
     response_mode = request.app.state.response_mode
-    return handle_prompt_request(data, response_mode)
+    response = handle_prompt_request(data, response_mode)
+    print("response 2")
+    print(response.json())
+    return response.json()
 
 @app.get("/mode")
 def get_mode(request: Request):
@@ -24,17 +27,17 @@ def get_mode(request: Request):
 class ModeRequest(BaseModel):
     mode: str
 
-@app.post("/switch_mode")
-def submit(mode: ModeRequest, request: Request):
-    #asserts the request is valid
-    if mode.mode not in MODES:
-        raise HTTPException(status_code=500, detail={})
+# @app.post("/switch_mode")
+# def submit(mode: ModeRequest, request: Request):
+#     #asserts the request is valid
+#     if mode.mode not in MODES:
+#         raise HTTPException(status_code=500, detail={})
 
-    request.app.state.response_mode = mode.mode 
+#     request.app.state.response_mode = mode.mode 
 
-    return {
-        "status": "success",
-    }
+#     return {
+#         "status": "success",
+#     }
 
 class MetricsPayload(BaseModel):
     query_uuid: str
