@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+import threading
 
 from textual import on
 from textual.app import App, ComposeResult
@@ -17,7 +18,6 @@ from utils import (
     send_prompt_request,
     set_mode,
 )
-
 
 class Prompt(Label):
     def __init__(self, prompt: str, model: str) -> None:
@@ -114,28 +114,29 @@ class InputApp(App):
         select_widget = self.query_one(Select)
         model = select_widget.value
 
+        #updates scroll with our msg
         scroll = self.query_one("#messages", VerticalScroll)
         scroll.mount(Prompt(event.input.value, model))
-
-        # sends the request
-        self.messages.append({"role": "user", "content": event.input.value})
-        to_send = InternalRequest(
-            original=f"{{'messages': {json.dumps(self.messages)}}}",
-            uuid="id 1",
-            model=model,
-        )
-        res = send_prompt_request(to_send)
-
-        # adds the response to the context
-        self.messages.append(res)
-        # adds the response to the scroll
-        scroll.mount(Response(str(res), model, False))
-        # clears input
-        event.input.value = ""
         scroll.scroll_end(animate=False)
+        event.input.value = ""
+        self.refresh()
+        self.run_worker(self.get_res(event.input.value, model))
 
 
-app = InputApp()
+    async def get_res(self, prompt, model):
+        container = self.query_one('#messages', VerticalScroll)
+        self.messages.append({"role": "user", "content": prompt})
+        to_send = InternalRequest(
+                original=f'{{"messages": {json.dumps(self.messages)}}}',
+                uuid="id 1",
+                model=model,
+                )
+        res = send_prompt_request(to_send)
+        #self.messages.append(res)
+        #updates the response 
+        container.mount(Response(str(res['choices'][0]['message']['content']), model, False))
+        container.scroll_end(animate=False)
 
 if __name__ == "__main__":
+    app = InputApp()
     app.run()

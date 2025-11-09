@@ -3,6 +3,8 @@ import os
 import subprocess
 import sys
 
+CHEAP_MODEL = 'b'
+
 import requests
 from fastapi import BackgroundTasks, FastAPI, Request, Response
 from pydantic import BaseModel
@@ -34,23 +36,14 @@ class ModeRequest(BaseModel):
     mode: str
 
 
-# @app.post("/switch_mode")
-# def submit(mode: ModeRequest, request: Request):
-#     #asserts the request is valid
-#     if mode.mode not in MODES:
-#         raise HTTPException(status_code=500, detail={})
+@app.post("/switch_mode")
+def submit(mode: ModeRequest, request: Request): 
+    request.app.state.response_mode = mode.mode 
+    return { "status": "success", }
 
-#     request.app.state.response_mode = mode.mode
-
-#     return {
-#         "status": "success",
-#     }
-
-
-class MetricsPayload(BaseModel):
-    query_uuid: str
+class MetricsPayload(BaseModel): 
+    query_uuid: str 
     metrics: list
-
 
 @app.post("/metrics/")
 def receive_metrics(payload: MetricsPayload):
@@ -74,5 +67,5 @@ class InternalRequest(BaseModel):
 def handle_prompt_request(internal_request: InternalRequest, response_mode: str):
     match response_mode:
         case "skimp":
-            internal_request.model = "b"
+            internal_request.model = CHEAP_MODEL 
     return send_internal_request(internal_request)

@@ -1,16 +1,14 @@
 use axum::{
-    Error, Router,
+    Router,
     extract::{Json as ExtractJson, State},
-    http::header,
-    response::{IntoResponse, Json, Response},
-    routing::{get, post},
+    response::{Response},
+    routing::{get},
 };
 use http_body_util::BodyExt;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Uri};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde::{Deserialize};
 
 use std::process::Command;
 use std::sync::Arc;
@@ -136,7 +134,7 @@ async fn nvidia(
     mut stop_rx: tokio::sync::oneshot::Receiver<()>,
     uuid: String,
     model: String,
-    port: u16,
+    _port: u16,
 ) {
     println!("started query for nvidia");
 
@@ -170,15 +168,17 @@ async fn nvidia(
 
     let test = async || {
         println!("---profiling---");
-        // let mut ts = Command::new("tegrastats")
-        //     .arg("--interval")
-        //     .arg("1")
-        //     .stdout(Stdio::piped())
-        //     .spawn().unwrap();
+        let mut ts = Command::new("tegrastats")
+            .arg("--interval")
+            .arg("1")
+            .stdout(Stdio::piped())
+            .spawn().unwrap();
+        /*
         let mut ts = Command::new("echo")
             .arg("'11-09-2025 00:00:29 RAM 3058/7620MB (lfb 37x4MB) CPU [somestuff] GR 12% cpu soc soc gpu tj soc VDDIN 5080mW/5080mW VDD_CPU 603mW/603mW VDD_SOC 1449mW/1449mW'")
             .stdout(Stdio::piped())
             .spawn().unwrap();
+        */
 
         let head = Command::new("head")
             .arg("-n")
