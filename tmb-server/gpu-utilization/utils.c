@@ -5,6 +5,10 @@
 #include <gsl/gsl_sf_psi.h>
 #include <gsl/gsl_sf_gamma.h>
 #define EPSILON DBL_EPSILON
+#define LOWER_BOUND 1e-14
+#define SMALL_ALPHA 1e-6
+#define SMALL_BETA 1e-6
+#define SMALL_DELTA 1e-8
 // if you have mac, compile:
 // gcc utils.c -I/opt/homebrew/include -L/opt/homebrew/lib -lgsl -lgslcblas -lm
 
@@ -60,7 +64,7 @@ betaParams betaDistroGPU(DataBuffer *self) {
         double C = gsl_sf_psi_1(alphaBeta);
         // fabs() -> doubleing absolute value
         double D = A * B - C * C;
-        if (fabs(D) < 1e-14) {
+        if (fabs(D) < LOWER_BOUND) {
             break;
         }
 
@@ -70,10 +74,10 @@ betaParams betaDistroGPU(DataBuffer *self) {
         alpha -= 0.1 * dalpha;
         beta  -= 0.1 * dbeta;
 
-        if (alpha <= 0) alpha = 1e-6;
-        if (beta  <= 0) beta  = 1e-6;
+        if (alpha <= 0) alpha = SMALL_ALPHA;
+        if (beta  <= 0) beta  = SMALL_BETA;
 
-        if (fabs(dalpha) < 1e-8 * fabs(alpha) && fabs(dbeta) < 1e-8 * fabs(beta)) {
+        if (fabs(dalpha) < SMALL_DELTA * fabs(alpha) && fabs(dbeta) < SMALL_DELTA * fabs(beta)) {
             break;
         }
     }

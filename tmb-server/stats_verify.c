@@ -9,7 +9,10 @@
 #include "vram/utils.h"
 #define MAX_BUFFER 256
 #define SMI_DATA_LEN 3
-
+// TODO generate random data
+// TODO fix vram distro
+// TODO fix powerdraw distro as well?
+// TODO change evaluation metric from hardcoded threshold
 // entry point
 // simple local test:
 /*
@@ -24,7 +27,7 @@ gcc stats_verify.c \
     -o stats_verify
 */
 
-// ./stats_verify GPT-5_storage.csv 0.75 42.24 57.321
+// ./stats_verify GPT-5_storage.csv 0.75 0.89 57.321
 int main(int argcnt, char *argls[]) {
     // argls -> c executable, storage path, gpu, vram, powerdraw. All as strings
     const char *filePath = argls[1];
@@ -57,19 +60,6 @@ int main(int argcnt, char *argls[]) {
     printf("Inference for GPU data %.3f → %s\n",
            gpuData, gpuInference ? "ACCEPTED" : "REJECTED");
 
-
-    // ------------------------------------------------------------
-    // POWER DRAW SECTION
-    // ------------------------------------------------------------
-    printf("\n=== POWER DRAW ANALYSIS ===\n");
-    betaParams powerParams = betaDistroPower(&buffer);
-    printf("Power Draw Beta Parameters: α = %.6f, β = %.6f\n",
-           powerParams.alpha, powerParams.beta);
-
-    bool powerInference = betaDistroPowerInference(powerData, powerParams);
-    printf("Inference for Power Draw data %.3f → %s\n",
-           powerData, powerInference ? "ACCEPTED" : "REJECTED");
-
     // ------------------------------------------------------------
     // VRAM SECTION
     // ------------------------------------------------------------
@@ -84,6 +74,19 @@ int main(int argcnt, char *argls[]) {
     bool vramInference = betaDistroVRAMInference(vramData, vramParams);
     printf("Inference for VRAM data %.3f → %s\n",
            vramData, vramInference ? "ACCEPTED" : "REJECTED");
+
+    
+    // ------------------------------------------------------------
+    // POWER DRAW SECTION
+    // ------------------------------------------------------------
+    printf("\n=== POWER DRAW ANALYSIS ===\n");
+    betaParams powerParams = betaDistroPower(&buffer);
+    printf("Power Draw Beta Parameters: α = %.6f, β = %.6f\n",
+           powerParams.alpha, powerParams.beta);
+
+    bool powerInference = betaDistroPowerInference(powerData, powerParams);
+    printf("Inference for Power Draw data %.3f → %s\n",
+           powerData, powerInference ? "ACCEPTED" : "REJECTED");
 
     free(buffer.row);
     

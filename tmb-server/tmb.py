@@ -27,11 +27,12 @@ pendingRequests: dict[str, dict] = {}
 async def cache_and_average(userID, model, gpuUtilization, vramUsage, powerDraw):
     session = pendingRequests[userID]
     # normalize gpuUtilization to 0 and 1
+    # normalize vramUsage to 0 and 1
     async with session["Lock"]:
         session["Cache"].append({
             "Model": model,
             "gpuUtilization": gpuUtilization / 100.0,
-            "vramUsage": vramUsage,
+            "vramUsage": vramUsage / 100.0,
             "powerDraw": powerDraw,
         })
 
@@ -217,12 +218,27 @@ async def finished(req: FINISH):
     try:
         print("its doing a log")
         log.info("Compiling C File...")
-        subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
-        
+        # build dependencies
+        deps = [
+        os.path.join(baseDir, "utils.c"),
+        os.path.join(baseDir, "gpu-utilization", "utils.c"),
+        os.path.join(baseDir, "powerdraw", "utils.c"),
+        os.path.join(baseDir, "vram", "utils.c"),
+        ]
+        # build gcc command
+        cmd = [
+            "gcc",
+            cFile,
+            *deps,
+            "-o", cExecutable,
+            "-lgsl", "-lgslcblas", "-lm"
+        ]
+        subprocess.run(cmd, check=True)
+        #subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
     except subprocess.CalledProcessError as e:
         log.error(f"Error Compiling C File: {e}")
         return e
-    
+    # build input arguments
     arguments = [
         str(model + "_storage.csv"),
         str(gpuAvg),
@@ -236,10 +252,16 @@ async def finished(req: FINISH):
                                 text=True,
                                 check=True)
         verification = result.stdout.strip()
-        session["Verification"] = verification
+        # sums true + false, <= 1 means majority true
+        if int(verification) <= 1:
+            session["Verification"] = True
+        else:
+            session["Verification"] = False
+        
         print("sets event")
         session["Event"].set()  # release clientRequest waiter
-        return {"Result": verification}
+        print(f"Verification Result: {session['Verification']}")
+        return {"Verification Result": session["Verification"]}
     except subprocess.CalledProcessError:
         log.error(f"C Standard Error: {e.stderr}")
         return e
