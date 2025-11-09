@@ -1,5 +1,11 @@
 # Trust Me Bro
 
+## Local Setup
+- cd /wrapper
+- cargo build
+- cd .. 
+- python launcher.py
+
 ## Members: 
 Bennett Gillig, Austin Henlotter, Junyang Lu, Marshall Rhodes, Maxwell Tang, Steven Zhang
 

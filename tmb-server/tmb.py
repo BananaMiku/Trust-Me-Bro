@@ -263,7 +263,7 @@ async def finished(req: FINISH):
         session["Event"].set()  # release clientRequest waiter
         print(f"Verification Result: {session['Verification']}")
         return {"Verification Result": session["Verification"]}
-    except subprocess.CalledProcessErro as e:
+    except subprocess.CalledProcessError as e:
         log.error(f"C Standard Error: {e.stderr}")
         return e
     except Exception as e:

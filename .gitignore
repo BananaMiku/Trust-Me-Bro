@@ -9,7 +9,7 @@ flake.lock
 *.a
 *.so
 *.exe
-*.csv
+#*.csv
 
 # file
 stats_verify
