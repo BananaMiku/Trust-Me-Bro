@@ -1,0 +1,6 @@
+# Log all writes to avoid tampering
+measure func=FILE_CHECK mask=MAY_WRITE pcr=11
+# Allow root to manually measure a particular file
+measure func=FILE_CHECK mask=MAY_READ  pcr=10 uid=0 gid=2068
+# Add file hashes to the audit log
+audit   func=BPRM_CHECK mask=MAY_EXEC

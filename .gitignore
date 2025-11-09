@@ -27,3 +27,6 @@ install_manifest.txt
 *.dll
 *.dylib
 stats_verify
+
+verifier/venv
+verifier/shared
