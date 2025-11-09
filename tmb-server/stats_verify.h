@@ -20,7 +20,4 @@ void DataBufferInit(DataBuffer *self, int totalCapacity);
 void DataBufferRead(DataBuffer *self, const char *filePath);
 void DataBufferPrint(const DataBuffer *self);
 
-// methods to fit the data here
-
-
 #endif

@@ -76,8 +76,8 @@ def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
 
 @tmb.post("/clientRequest")
 async def clientRequest(uuid: UUID):
-    print("hit clientRequest")
     userID = uuid.userID
+    log.info(f"{userID} Reached /clientRequest")
     if userID not in pendingRequests:
         pendingRequests[userID] = {
             "Event": asyncio.Event(),
@@ -88,7 +88,6 @@ async def clientRequest(uuid: UUID):
     session = pendingRequests[userID]
     try:
         await asyncio.wait_for(session["Event"].wait(), timeout=3)
-        print(f"curr sesh: {pendingRequests}")
         return {"Verified": session["Verification"]}
     except asyncio.TimeoutError:
         err = "Verification Process Timed Out"
@@ -104,8 +103,8 @@ async def clientRequest(uuid: UUID):
 # incoming data from LLM server
 @tmb.post("/metrics")
 async def metrics(smiData: SMIData):
-    print("hit metrics")
     userID = smiData.uuid.userID
+    log.info(f"{userID} Reached /metrics")
     if userID not in pendingRequests:
         pendingRequests[userID] = {
             "Event": asyncio.Event(),
@@ -132,7 +131,7 @@ class FINISH(BaseModel):
 @tmb.post("/finished")
 async def finished(req: FINISH):
     userID = req.userID
-    print("called finish")
+    log.info(f"{userID} Reached /finished")
     if userID not in pendingRequests:
         raise HTTPException(status_code=400, detail="No Active Session")
 
@@ -157,9 +156,7 @@ async def finished(req: FINISH):
     cFile = os.path.join(baseDir, "stats_verify.c")
     cExecutable = os.path.join(baseDir, "stats_verify")
     storageFile = os.path.join(baseDir, f"{model}_storage.csv")
-    print(f"storage file! {storageFile}")
     try:
-        print("its doing a log")
         log.info("Compiling C File...")
         # build dependencies
         deps = [
@@ -210,13 +207,11 @@ async def finished(req: FINISH):
             session["Verification"] = True
         else:
             session["Verification"] = False
-        
-        print("sets event")
+            
+        log.info(f"Setting Events for: {session["Event"]}")
         session["Event"].set()  # release clientRequest waiter
-        print(f"Verification Result: {session['Verification']}")
         return {"Verification Result": session["Verification"]}
     except subprocess.CalledProcessError as e:
-        log.error(f"C Standard Error: {e.stderr}")
         log.error(f"STDOUT: {e.stdout}")
         log.error(f"STDERR: {e.stderr}")
         return e

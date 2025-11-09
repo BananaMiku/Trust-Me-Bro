@@ -102,7 +102,7 @@ async fn push_handler(
 }
 
 async fn call_model(original: String, model_port: u16) -> hyper::Response<Incoming> {
-    print!("calling model")
+    print!("calling model");
     let url = format!("http://localhost:{}/v1/chat/completion", model_port);
     let stream = TcpStream::connect(&url).await.unwrap();
     let io = TokioIo::new(stream);

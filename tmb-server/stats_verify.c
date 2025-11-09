@@ -9,10 +9,6 @@
 #include "vram/utils.h"
 #define MAX_BUFFER 256
 #define SMI_DATA_LEN 3
-// TODO generate random data
-// TODO fix vram distro
-// TODO fix powerdraw distro as well?
-// TODO change evaluation metric from hardcoded threshold
 // entry point
 // simple local test:
 /*
@@ -40,7 +36,7 @@ int main(int argcnt, char *argls[]) {
     assert (argcnt == 5);
     DataBuffer buffer;
     // TODO with python, move 10, the buffer size to a global config file
-    DataBufferInit(&buffer, 100);
+    DataBufferInit(&buffer, 200);
     DataBufferRead(&buffer, filePath);
     // DataBufferPrint(&buffer);
 
@@ -55,9 +51,6 @@ int main(int argcnt, char *argls[]) {
     printf("Inference for GPU data %.3f → %s\n",
            gpuData, gpuInference ? "ACCEPTED" : "REJECTED");
 
-    // ------------------------------------------------------------
-    // VRAM SECTION
-    // ------------------------------------------------------------
     // ------------------------------------------------------------
     // VRAM USAGE SECTION
     // ------------------------------------------------------------
