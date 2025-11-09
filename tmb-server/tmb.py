@@ -230,8 +230,9 @@ async def finished(req: FINISH, request: Request):
         # sums true + false, <= 1 means majority true
         print("-ejkvdfhjkvndekrhvbekrjhbvdfkrjhvbjk")
         print(verification)
+        log.info(result.stdout)
 
-        session["Verification"] = not bool(verification)
+        session["Verification"] = bool(int(verification))
 
         log.info(f"Setting Events for: {session['Event']}")
         session["Event"].set()  # release clientRequest waiter
@@ -245,4 +246,5 @@ async def finished(req: FINISH, request: Request):
         return e
     finally:
         # reservoir sampling at the end
-        reservoir_sampling(model, gpuAvg, vramAvg, powerAvg)
+        if session["Verification"]:
+            reservoir_sampling(model, gpuAvg, vramAvg, powerAvg)

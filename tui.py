@@ -6,6 +6,8 @@ import threading
 import requests
 import uuid
 
+MODEL = 'a'
+
 from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import VerticalScroll
@@ -22,12 +24,13 @@ from utils import (
 )
 
 from launcher import (launch_model, launch_model_b)
+from sys import argv
 
 
 class Prompt(Label):
     def __init__(self, prompt: str, model: str) -> None:
         super().__init__(prompt)
-        self.model = model
+        self.model = 'Prompt'
 
     def on_mount(self) -> None:
         self.border_title = self.model
@@ -36,7 +39,7 @@ class Prompt(Label):
 class Response(Label):
     def __init__(self, response: str, model: str, verified: bool) -> None:
         super().__init__(response)
-        self.model = model
+        self.model = 'Response'
         self.verified = verified
 
     def on_mount(self) -> None:
@@ -104,7 +107,6 @@ class InputApp(App):
 
     def compose(self) -> ComposeResult:
         yield Label("Trust Me Bro")
-        yield Select.from_values(["a", "b"], allow_blank=False)
         yield VerticalScroll(
             id="messages",
         )
@@ -115,27 +117,13 @@ class InputApp(App):
     @on(Input.Submitted)
     def on_submit(self, event: Input.Submitted) -> None:
         self.app
-        # gets the model
-        select_widget = self.query_one(Select)
-        model = select_widget.value
-
-        # kill old model and start new model :)
-        import subprocess
-        subprocess.Popen(["killall", "llama-server"])
-        if model == "a":
-            launch_model_b()
-        else:
-            launch_model()
-
-
         #updates scroll with our msg
         scroll = self.query_one("#messages", VerticalScroll)
-        scroll.mount(Prompt(event.input.value, model))
+        scroll.mount(Prompt(event.input.value, MODEL))
         scroll.scroll_end(animate=False)
-        event.input.value = ""
         self.refresh()
-        self.run_worker(self.get_res(event.input.value, model))
-
+        self.run_worker(self.get_res(event.input.value, MODEL))
+        event.input.value = ""
 
     async def get_res(self, prompt, model):
         UUID = str(uuid.uuid4())

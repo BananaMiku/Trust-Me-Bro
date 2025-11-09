@@ -47,7 +47,7 @@ def launch_model():
         [
             "./llama.cpp/build/bin/llama-server",
             "-hf",
-            "ggml-org/gemma-3-1b-it-GGUF",
+            "ggml-org/gemma-3-4b-it-GGUF",
             "--port",
             str(get_port_no("model")),
         ],
@@ -61,7 +61,7 @@ def launch_model_b():
             "-hf",
             "ggml-org/gemma-3-270m-it-GGUF",
             "--port",
-            str(get_port_no("model") + 1),
+            str(get_port_no("model")),
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -93,6 +93,34 @@ def launch_all():
     load_thread.join()
     tmb_thread.join()
 
+def launch_all_evil():
+    load_thread = threading.Thread(target=launch_load, daemon=True)
+    tmb_thread = threading.Thread(target=launch_tmb, daemon=True)
+
+    load_thread.start()
+    print("launched load")
+
+    tmb_thread.start()
+    print("launched tmb")
+
+    launch_wrapper()
+    print("launched wrapper")
+
+    launch_model_b()
+    print("launched model")
+
+    from time import sleep
+
+    sleep(2)
+    print("----------------")
+    client()
+
+    load_thread.join()
+    tmb_thread.join()
+
+
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -108,5 +136,7 @@ if __name__ == "__main__":
             launch_wrapper()
         case "model":
             launch_model()
+        case "evil":
+            launch_all_evil() 
         case _:
             launch_all()

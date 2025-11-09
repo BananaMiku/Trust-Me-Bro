@@ -94,5 +94,5 @@ double betaLogPDF_VRAM(double data, double alpha, double beta) {
 
 bool betaDistroVRAMInference(double data, betaParams params) {
     // hard coded cut off threshold
-    return betaLogPDF_VRAM(data, params.alpha, params.beta) > 0.1 ? true : false;
+    return betaLogPDF_VRAM(data, params.alpha, params.beta) > 2 ? true : false;
 }
