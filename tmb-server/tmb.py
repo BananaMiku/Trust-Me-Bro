@@ -178,6 +178,7 @@ async def finished(req: FINISH, request: Request):
     storageFile = os.path.join(baseDir, f"{model}_storage.csv")
     if pd.read_csv(storageFile).size <= 10:
         log.info("Ingesting Data for Reference")
+        session["Event"].set()  # release clientRequest waiter
         return {"Verification Result": session["Verification"]}
     
     log.info(f"C File Located at: {cFile}")

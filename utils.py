@@ -42,6 +42,18 @@ def send_prompt_request(internal_request):
     return response.json()
 
 
+def send_prompt_request_stream(internal_request):
+    to_send = internal_request_to_json(internal_request)
+    url = load_url + PROMPT_REQUEST_PATH
+    sesh = requests.session()
+    
+    with sesh.get(url, json=to_send, stream=True) as response:
+        # if backend streams plain text / JSON lines
+        for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            yield line
+
 def internal_request_to_json(internal_request):
     ret = {
         "original": internal_request.original,
