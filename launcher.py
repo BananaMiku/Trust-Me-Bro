@@ -63,6 +63,7 @@ def launch_model():
             str(get_port_no("model") + 1),
         ],
         stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
 
 

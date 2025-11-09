@@ -3,6 +3,8 @@ import json
 import os
 import sys
 import threading
+import requests
+import uuid
 
 from textual import on
 from textual.app import App, ComposeResult
@@ -124,11 +126,12 @@ class InputApp(App):
 
 
     async def get_res(self, prompt, model):
+        UUID = str(uuid.uuid4())
         container = self.query_one('#messages', VerticalScroll)
         self.messages.append({"role": "user", "content": prompt})
         to_send = InternalRequest(
                 original=f'{{"messages": {json.dumps(self.messages)}}}',
-                uuid="id 1",
+                uuid=UUID,
                 model=model,
                 )
         res = send_prompt_request(to_send)
@@ -136,9 +139,9 @@ class InputApp(App):
 
         ver = requests.post(
             f"http://localhost:{get_port_no('tmb')}/clientRequest",
-            json={"userID": "id 1", "model": "gpt5"},
-            ).content['Verification Result']
-        container.mount(Response(str(res['choices'][0]['message']['content']), model, ver=='True'))
+            json={"userID": UUID, "model": model},
+            ).json()['Verified']
+        container.mount(Response(str(res['choices'][0]['message']['content']), model, ver))
         container.scroll_end(animate=False)
 
 if __name__ == "__main__":

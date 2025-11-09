@@ -211,6 +211,7 @@ async def finished(req: FINISH, request: Request):
         return e
     # build input arguments
     arguments = [str(storageFile), str(gpuAvg), str(vramAvg), str(powerAvg)]
+    print(arguments)
 
     try:
         result = subprocess.run(
