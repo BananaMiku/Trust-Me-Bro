@@ -19,6 +19,8 @@ use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio::sync::oneshot;
 use tokio::time::{Duration, sleep};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 #[derive(Clone)]
 struct AppState {
@@ -77,8 +79,8 @@ async fn push_handler(
         }
     }
 
-    let model_request = tokio::spawn(call_model(payload.original, port_no));
-    let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no));
+    let model_request = tokio::spawn(call_model(payload.original.clone(), port_no));
+    let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no, payload.original));
 
     //end when we get network
     let res = model_request.await;
@@ -135,6 +137,7 @@ async fn nvidia(
     uuid: String,
     model: String,
     _port: u16,
+    payload: String
 ) {
     println!("started query for nvidia");
 
@@ -226,6 +229,7 @@ async fn nvidia(
             "{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}}}",
             gpu, ram, draw, uuid, model
         );
+        write_trace_file(format!("{}", report)).unwrap();
 
         println!("nvidia report: {}", report);
 
@@ -269,11 +273,11 @@ async fn nvidia(
                     .header(hyper::header::CONTENT_TYPE, "application/json")
                     .body(http_body_util::Full::new(Bytes::from(format!("{{\"userID\": \"{}\"}}", uuid)))).unwrap();
 
+                //writes stuff to file 
+                write_trace_file(format!("{}", payload)).unwrap();
                 let mut lock = mutex.lock().await;
                 let _res = sender.send_request(req).await.unwrap();
-
                 *lock += 1;
-
                 break;
             }
             _ = sleep(Duration::from_secs(1)) => {
@@ -282,3 +286,14 @@ async fn nvidia(
         }
     }
 }
+
+fn write_trace_file(to_write : String) -> std::io::Result<()> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open("trace.txt")?;
+    file.write_all(to_write.as_bytes())?;
+    Ok(())
+}
+

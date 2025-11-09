@@ -236,7 +236,12 @@ async def finished(req: FINISH, request: Request):
 
         log.info(f"Setting Events for: {session['Event']}")
         session["Event"].set()  # release clientRequest waiter
-        return {"Verification Result": session["Verification"]}
+        #call max function
+        os.system("sudo verifier/export_signature.sh -o signature.zip")
+        ## Here would actually be glue logc sending signatures and data but this is just a demoo
+
+        crypto_verification_success = os.system("python3 verifier/full_verify.py signature.zip") == 0
+        return {"Verification Result": session["Verification"] and crypto_verification_success}
     except subprocess.CalledProcessError as e:
         log.error(f"STDOUT: {e.stdout}")
         log.error(f"STDERR: {e.stderr}")
