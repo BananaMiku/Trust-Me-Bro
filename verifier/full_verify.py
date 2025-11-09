@@ -271,6 +271,7 @@ def main():
         # print(verifier.get_pcr_value(12, "sha1"))
 
     # cleanup unless requested otherwise
+        print(f"{verifying_key=}")
     finally:
         if 'args' in locals() and getattr(args, 'keep', False):
             print(f"Kept extracted folder: {tempdir}")
