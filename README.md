@@ -1,12 +1,14 @@
 # Trust Me Bro
 
 ## Local Setup
+- git clone https://github.com/BananaMiku/Trust-Me-Bro.git --recurse-submodules
+- build llama.cpp
 - cd /wrapper
 - cargo build
-- cd .. 
+- cd ..
 - python launcher.py
 
-## Members: 
+## Members:
 Bennett Gillig, Austin Henlotter, Junyang Lu, Marshall Rhodes, Maxwell Tang, Steven Zhang
 
 **Trust Me Bro** is a system that allows AI model providers to prove that each inference request was executed by the model and hardware they claim to be using.
@@ -18,7 +20,7 @@ Modern AI services rely on trust: users assume that an API call to “Model A”
 This framework addresses that trust gap by providing cryptographic, runtime-verifiable proofs of inference integrity — forming the basis for “proof of inference authenticity.”
 
 __How It Works__
-1. 
+1.
 
 __Key Features__
 
