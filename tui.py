@@ -137,6 +137,15 @@ class InputApp(App):
         container.mount(Response(str(res['choices'][0]['message']['content']), model, False))
         container.scroll_end(animate=False)
 
+<<<<<<< HEAD
+=======
+        #get the ver
+        ver = requests.post(
+            f"http://localhost:{get_port_no('tmb')}/clientRequest",
+            json={"userID": "id 1", "model": "gpt5"},
+        ).content
+
+>>>>>>> 8854b92 (still me, writting stuff)
 if __name__ == "__main__":
     app = InputApp()
     app.run()
