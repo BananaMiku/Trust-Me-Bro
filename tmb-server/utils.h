@@ -1,4 +1,7 @@
-#include "stats_verify.h"
+#ifndef UTILS_H
+#define UTILS_H
+
+#include "./stats_verify.h"
 #include <stdbool.h>
 
 /*
@@ -44,5 +47,7 @@ PDF inference on incoming data
 */
 bool betaDistroGPUInference(double data, betaParams params);
 
-void betaDistroVRAM();
-void gammaDistroPower();
+// void betaDistroVRAM();
+// void gammaDistroPower();
+
+#endif

@@ -4,7 +4,9 @@
 #include <string.h>
 #include <assert.h>
 //#include <gsl/gsl_errno.h>
-#include "utils.h"
+#include "gpu-utilization/utils.h"
+#include "powerdraw/utils.h"
+#include "vram/utils.h"
 #define MAX_BUFFER 256
 #define SMI_DATA_LEN 3
 
@@ -17,12 +19,20 @@ gcc stats_verify.c utils.c \
     -lgsl -lgslcblas -lm \
     -o stats_verify
 */
+// gcc stats_verify.c \
+//     utils.c \
+//     gpu-utilization/utils.c \
+//     powerdraw/utils.c \
+//     vram/utils.c \
+//     -I/opt/homebrew/include \
+//     -L/opt/homebrew/lib \
+//     -lgsl -lgslcblas -lm \
+//     -o stats_verify
+
 // ./stats_verify GPT-5_storage.csv 0.75 42.24 57.321
 int main(int argcnt, char *argls[]) {
     //gsl_set_error_handler_off();
     printf("C file!\n");
-    // arcnt + length of argls
-    // assert(argcnt == 5);
     const char *filePath = argls[1];
 
     DataBuffer buffer;
@@ -30,11 +40,55 @@ int main(int argcnt, char *argls[]) {
     DataBufferInit(&buffer, 100);
     DataBufferRead(&buffer, filePath);
     // DataBufferPrint(&buffer);
-    betaParams params = betaDistroGPU(&buffer);
-    double data = 0.5;
-    bool foo = betaDistroGPUInference(data, params);
-    printf("Checking bool bool: ");
-    printf("%d", foo);
+
+    // betaParams params = betaDistroGPU(&buffer);
+    // double data = 0.5;
+    // bool foo = betaDistroGPUInference(data, params);
+    // printf("Checking bool bool: ");
+    // printf("%d", foo);
+    // ------------------------------------------------------------
+    // GPU UTILIZATION SECTION
+    // ------------------------------------------------------------
+    printf("\n=== GPU UTILIZATION ANALYSIS ===\n");
+    betaParams gpuParams = betaDistroGPU(&buffer);
+    printf("GPU Beta Parameters: α = %.6f, β = %.6f\n", gpuParams.alpha, gpuParams.beta);
+
+    double gpuData = 0.5;
+    bool gpuInference = betaDistroGPUInference(gpuData, gpuParams);
+    printf("Inference for GPU data %.3f → %s\n",
+           gpuData, gpuInference ? "ACCEPTED" : "REJECTED");
+
+
+    // ------------------------------------------------------------
+    // POWER DRAW SECTION
+    // ------------------------------------------------------------
+    printf("\n=== POWER DRAW ANALYSIS ===\n");
+    betaParams powerParams = betaDistroPower(&buffer);
+    printf("Power Draw Beta Parameters: α = %.6f, β = %.6f\n",
+           powerParams.alpha, powerParams.beta);
+
+    double powerData = 0.65;
+    bool powerInference = betaDistroPowerInference(powerData, powerParams);
+    printf("Inference for Power Draw data %.3f → %s\n",
+           powerData, powerInference ? "ACCEPTED" : "REJECTED");
+
+    // ------------------------------------------------------------
+    // VRAM SECTION
+    // ------------------------------------------------------------
+    // ------------------------------------------------------------
+    // VRAM USAGE SECTION
+    // ------------------------------------------------------------
+    printf("\n=== VRAM USAGE ANALYSIS ===\n");
+    betaParams vramParams = betaDistroVRAM(&buffer);
+    printf("VRAM Beta Parameters: α = %.6f, β = %.6f\n",
+           vramParams.alpha, vramParams.beta);
+
+    double vramData = 0.4;
+    bool vramInference = betaDistroVRAMInference(vramData, vramParams);
+    printf("Inference for VRAM data %.3f → %s\n",
+           vramData, vramInference ? "ACCEPTED" : "REJECTED");
+
+    free(buffer.row);
 
     return 0;
 }

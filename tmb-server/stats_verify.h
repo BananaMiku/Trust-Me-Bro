@@ -1,3 +1,6 @@
+#ifndef STATS_VERIFY_H
+#define STATS_VERIFY_H
+
 // for each row of the csv file
 typedef struct {
     double gpuUtilization;
@@ -19,3 +22,5 @@ void DataBufferPrint(const DataBuffer *self);
 
 // methods to fit the data here
 
+
+#endif
