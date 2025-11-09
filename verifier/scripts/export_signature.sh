@@ -3,8 +3,49 @@
 # This is the template for triggering a read (adding a file to the measurement log)
 # sudo dd if=<file name> of=/dev/null count=0 status=none
 
+usage() {
+    echo "Usage: $0 -t TARGET_FOLDER"
+    echo
+    echo "Options:"
+    echo "  -t TARGET_FOLDER  Directory where all exported files will be saved (required)"
+    echo "  -h               Display this help message"
+    exit 1
+}
+
 EK_HANDLE=./primary.ctx
-TARGET_FOLDER=/home/maxwell/shared
+TARGET_FOLDER=""
+
+# Parse command line options
+while getopts "t:h" opt; do
+    case $opt in
+        t)
+            TARGET_FOLDER="$OPTARG"
+            ;;
+        h)
+            usage
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            usage
+            ;;
+        :)
+            echo "Option -$OPTARG requires an argument." >&2
+            usage
+            ;;
+    esac
+done
+
+# Check if TARGET_FOLDER is provided
+if [ -z "$TARGET_FOLDER" ]; then
+    echo "Error: TARGET_FOLDER (-t) is required" >&2
+    usage
+fi
+
+# Check if TARGET_FOLDER exists and is writable
+if [ ! -d "$TARGET_FOLDER" ]; then
+    echo "Error: $TARGET_FOLDER is not a directory" >&2
+    exit 1
+fi
 
 # Since Virtualbox does not add a root EK, we create our own key for mocking purposes
 sudo tpm2_createprimary -C e -g sha1 -G ecc -a "decrypt|sign|fixedtpm|fixedparent|sensitivedataorigin|userwithauth" -c $EK_HANDLE | sudo tee $TARGET_FOLDER/key_params.yaml
