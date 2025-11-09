@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
-//#include <gsl/gsl_errno.h>
+#include <gsl/gsl_errno.h>
 #include "gpu-utilization/utils.h"
 #include "powerdraw/utils.h"
 #include "vram/utils.h"
@@ -29,6 +29,7 @@ gcc stats_verify.c \
 
 // ./stats_verify GPT-5_storage.csv 0.75 0.89 57.321
 int main(int argcnt, char *argls[]) {
+    gsl_set_error_handler_off();
     // argls -> c executable, storage path, gpu, vram, powerdraw. All as strings
     const char *filePath = argls[1];
     double gpuData = atof(argls[2]);
@@ -54,6 +55,9 @@ int main(int argcnt, char *argls[]) {
     printf("Inference for GPU data %.3f → %s\n",
            gpuData, gpuInference ? "ACCEPTED" : "REJECTED");
 
+    // ------------------------------------------------------------
+    // VRAM SECTION
+    // ------------------------------------------------------------
     // ------------------------------------------------------------
     // VRAM USAGE SECTION
     // ------------------------------------------------------------
