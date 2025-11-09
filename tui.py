@@ -133,19 +133,14 @@ class InputApp(App):
                 )
         res = send_prompt_request(to_send)
         #self.messages.append(res)
-        #updates the response 
-        container.mount(Response(str(res['choices'][0]['message']['content']), model, False))
-        container.scroll_end(animate=False)
 
-<<<<<<< HEAD
-=======
-        #get the ver
         ver = requests.post(
             f"http://localhost:{get_port_no('tmb')}/clientRequest",
             json={"userID": "id 1", "model": "gpt5"},
-        ).content
+            ).content['Verification Result']
+        container.mount(Response(str(res['choices'][0]['message']['content']), model, ver=='True'))
+        container.scroll_end(animate=False)
 
->>>>>>> 8854b92 (still me, writting stuff)
 if __name__ == "__main__":
     app = InputApp()
     app.run()
