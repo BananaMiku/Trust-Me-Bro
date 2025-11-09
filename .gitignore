@@ -4,3 +4,4 @@ wrapper/target/*
 __pycache__
 flake.lock
 verifier/venv
+verifier/shared
