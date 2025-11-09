@@ -54,6 +54,16 @@ def launch_model():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+    subprocess.Popen(
+        [
+            "./llama.cpp/build/bin/llama-server",
+            "-hf",
+            "ggml-org/gemma-3-270m-it-GGUF",
+            "--port",
+            str(get_port_no("model") + 1),
+        ],
+        stdout=subprocess.DEVNULL,
+    )
 
 
 def launch_all():
