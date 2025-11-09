@@ -66,9 +66,9 @@ betaParams betaDistroGPU(DataBuffer *self) {
 
         double dalpha = ( B * g1 - C * g2) / D;
         double dbeta  = (-C * g1 + A * g2) / D;
-
-        alpha -= dalpha;
-        beta  -= dbeta;
+        // slows Newton methods to prevent divergence
+        alpha -= 0.1 * dalpha;
+        beta  -= 0.1 * dbeta;
 
         if (alpha <= 0) alpha = 1e-6;
         if (beta  <= 0) beta  = 1e-6;
@@ -89,5 +89,5 @@ double betaLogPDF(double data, double alpha, double beta) {
 
 bool betaDistroGPUInference(double data, betaParams params) {
     // hard coded cut off threshold
-    return betaLogPDF(data, params.alpha, params.beta) > log(0.1f) ? true : false;
+    return betaLogPDF(data, params.alpha, params.beta) > 0.1 ? true : false;
 }

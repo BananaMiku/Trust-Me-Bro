@@ -13,28 +13,28 @@
 // entry point
 // simple local test:
 /*
-gcc stats_verify.c utils.c \
+gcc stats_verify.c \
+    utils.c \
+    gpu-utilization/utils.c \
+    powerdraw/utils.c \
+    vram/utils.c \
     -I/opt/homebrew/include \
     -L/opt/homebrew/lib \
     -lgsl -lgslcblas -lm \
     -o stats_verify
 */
-// gcc stats_verify.c \
-//     utils.c \
-//     gpu-utilization/utils.c \
-//     powerdraw/utils.c \
-//     vram/utils.c \
-//     -I/opt/homebrew/include \
-//     -L/opt/homebrew/lib \
-//     -lgsl -lgslcblas -lm \
-//     -o stats_verify
 
 // ./stats_verify GPT-5_storage.csv 0.75 42.24 57.321
 int main(int argcnt, char *argls[]) {
-    //gsl_set_error_handler_off();
-    printf("C file!\n");
+    // argls -> c executable, storage path, gpu, vram, powerdraw. All as strings
     const char *filePath = argls[1];
-
+    double gpuData = atof(argls[2]);
+    double vramData = atof(argls[3]);
+    double powerData = atof(argls[4]);
+    //gsl_set_error_handler_off();
+    printf("Executing C Binary!\n");
+    
+    assert (argcnt == 5);
     DataBuffer buffer;
     // TODO with python, move 10, the buffer size to a global config file
     DataBufferInit(&buffer, 100);
@@ -53,7 +53,6 @@ int main(int argcnt, char *argls[]) {
     betaParams gpuParams = betaDistroGPU(&buffer);
     printf("GPU Beta Parameters: α = %.6f, β = %.6f\n", gpuParams.alpha, gpuParams.beta);
 
-    double gpuData = 0.5;
     bool gpuInference = betaDistroGPUInference(gpuData, gpuParams);
     printf("Inference for GPU data %.3f → %s\n",
            gpuData, gpuInference ? "ACCEPTED" : "REJECTED");
@@ -67,7 +66,6 @@ int main(int argcnt, char *argls[]) {
     printf("Power Draw Beta Parameters: α = %.6f, β = %.6f\n",
            powerParams.alpha, powerParams.beta);
 
-    double powerData = 0.65;
     bool powerInference = betaDistroPowerInference(powerData, powerParams);
     printf("Inference for Power Draw data %.3f → %s\n",
            powerData, powerInference ? "ACCEPTED" : "REJECTED");
@@ -83,14 +81,14 @@ int main(int argcnt, char *argls[]) {
     printf("VRAM Beta Parameters: α = %.6f, β = %.6f\n",
            vramParams.alpha, vramParams.beta);
 
-    double vramData = 0.4;
     bool vramInference = betaDistroVRAMInference(vramData, vramParams);
     printf("Inference for VRAM data %.3f → %s\n",
            vramData, vramInference ? "ACCEPTED" : "REJECTED");
 
     free(buffer.row);
-
-    return 0;
+    
+    printf("%d", (gpuInference + vramInference + powerInference));
+    return 0 ? gpuInference + vramInference + powerInference >= 2 : 1;
 }
 
 /*

@@ -24,8 +24,8 @@ betaParams betaDistroVRAM(DataBuffer *self) {
     stats = sampleVariance(self, stats);
 
     // Method of Moments initialization for t, alpha, and beta
-    double mean = stats.gpuSampleMean;
-    double variance = stats.gpuSampleVariance;
+    double mean = stats.vramSampleMean;
+    double variance = stats.vramSampleVariance;
     double alpha, beta;
     // add numerical guard
     if (variance <= 0.0) {
@@ -33,8 +33,8 @@ betaParams betaDistroVRAM(DataBuffer *self) {
         alpha = 1.0, beta = 1.0;
     } else {
         double t = (mean * (1 - mean)) / (variance) - 1;
-        alpha = fmax(EPSILON, stats.gpuSampleMean * t);
-        beta = fmax(EPSILON, (1 - stats.gpuSampleMean) * t);
+        alpha = fmax(EPSILON, stats.vramSampleMean * t);
+        beta = fmax(EPSILON, (1 - stats.vramSampleMean) * t);
     }
 
 
@@ -42,8 +42,8 @@ betaParams betaDistroVRAM(DataBuffer *self) {
     // log() is natural log
     double sumLogX = 0.0, sumLog1MinusX = 0.0;
     for (int i = 0; i < n; i++) {
-        sumLogX += log(self->row[i].gpuUtilization);
-        sumLog1MinusX += log(1.0 - self->row[i].gpuUtilization);
+        sumLogX += log(self->row[i].vramUsage);
+        sumLog1MinusX += log(1.0 - self->row[i].vramUsage);
     }
 
     // Newton methods for optimization
