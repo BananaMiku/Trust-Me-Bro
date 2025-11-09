@@ -19,6 +19,9 @@ sudo tpm2_eventlog /sys/kernel/security/tpm0/binary_bios_measurements | sudo tee
 # Export the audit log and add it to the event log
 sudo -g evtlogger -u root cp /var/log/audit/audit.log $TARGET_FOLDER/audit_log.txt
 
+# Export the audit log and add it to the event log
+sudo -g evtlogger -u root cp /etc/audit/rules.d/audit.rules $TARGET_FOLDER/audit.rules
+
 # Sign the event log and export the signature of the event log
 sudo tpm2_quote -c $EK_HANDLE -l sha1:0,1,2,3,4,5,6,7,8,9,10,11,12 -f plain --pcrs_format="values" -s $TARGET_FOLDER/tpm2_pcr_signature -m $TARGET_FOLDER/tpm2_pcr_message -o $TARGET_FOLDER/tpm2_pcr_data | sudo tee $TARGET_FOLDER/tpm2_pcr.yaml
 

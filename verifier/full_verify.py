@@ -102,29 +102,29 @@ def main():
     # Ensure boot logs have valid hashes and such
     with open(f"{bootroot}/secure_boot", "rb") as secure_boot:
         pcr_index = struct.unpack("<I", secure_boot.read(4))[0]
-        print(f"{pcr_index=}")
+        # print(f"{pcr_index=}")
         event_type = struct.unpack("<I", secure_boot.read(4))[0]
-        print(f"{event_type=}")
+        # print(f"{event_type=}")
         initial_digest =  secure_boot.read(20)
-        print(f"{initial_digest=}")
+        # print(f"{initial_digest=}")
         event_size = struct.unpack("<I", secure_boot.read(4))[0]
-        print(f"{event_size=}")
+        # print(f"{event_size=}")
         event_data = secure_boot.read(event_size)
-        print(f"{event_data.hex()=}")
+        # print(f"{event_data.hex()=}")
 
         secure = False
         while secure_boot.read(1):
             secure_boot.seek(-1, os.SEEK_CUR)
             pcr_index = struct.unpack("<I", secure_boot.read(4))[0]
-            print(f"{pcr_index=}")
+            # print(f"{pcr_index=}")
             event_type = struct.unpack("<I", secure_boot.read(4))[0]
-            print(f"{event_type=}")
+            # print(f"{event_type=}")
             digest_count = struct.unpack("<I", secure_boot.read(4))[0]
-            print(f"{digest_count=}")
+            # print(f"{digest_count=}")
             digest_dump = secure_boot.read(172)
-            print(f"{digest_dump.hex()=}")
+            # print(f"{digest_dump.hex()=}")
             event_size = struct.unpack("<I", secure_boot.read(4))[0]
-            print(f"{event_size=}")
+            # print(f"{event_size=}")
             event_data = secure_boot.read(event_size)
             # this is a terrible business logic but this is a hackathon
             try:
@@ -207,6 +207,15 @@ def main():
 
     print("Measurement log hash values match!")
 
+    audit_rules = open(f"{bootroot}/audit.rules", "rb")
+    audit_rules = audit_rules.read()
+    audit_rules_hash = hashlib.sha256()
+    audit_rules_hash.update(audit_rules)
+    audit_rules_hash = audit_rules_hash.digest()
+    assert audit_rules_hash == latest_file_hashes[b"/etc/audit/rules.d/audit.rules"]
+    
+    print("Audit rules verified")
+
     audit_log_hash = hashlib.sha256()
     with open(f"{bootroot}/audit_log.txt", "rb") as audit_log_file:
         while line := audit_log_file.readline():
@@ -216,7 +225,7 @@ def main():
                 break
         else:
             assert False, "audit log is not attested to!"
-    print("audit log verified!")
+    print("Audit log verified!")
 
     # TODO add business logic
 

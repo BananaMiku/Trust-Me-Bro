@@ -1,37 +1,3 @@
-# read/write on all of userspace
-# dont_measure fsmagic=0x9fa0          # PROC_SUPER_MAGIC
-# dont_measure fsmagic=0x62656572      # SYSFS_MAGIC
-# dont_measure fsmagic=0x1021994       # TMPFS_MAGIC
-# measure func=FILE_CHECK mask=MAY_READ  pcr=10
-# # 
-# measure func=FILE_CHECK mask=MAY_WRITE pcr=11
-# measure func=FILE_CHECK mask=MAY_WRITE pcr=10
-# dont_measure fsmagic=0x64626720      # DEBUGFS_MAGIC
-# dont_measure fsmagic=0x1cd1          # DEVPTS_SUPER_MAGIC
-# dont_measure fsmagic=0x42494e4d      # BINFMTFS_MAGIC
-# dont_measure fsmagic=0x73636673      # SECURITYFS_MAGIC
-# dont_measure fsmagic=0xf97cff8c      # SELINUX_MAGIC
-# dont_measure fsmagic=0x43415d53      # SMACK_MAGIC
-# dont_measure fsmagic=0x27e0eb        # CGROUP_SUPER_MAGIC
-# dont_measure fsmagic=0x63677270      # CGROUP2_SUPER_MAGIC
-# dont_measure fsmagic=0x6e736673      # NSFS_MAGIC
-# dont_measure fsmagic=0xde5e81e4      # EFIVARFS_MAGIC
-# read/write on audit log
-# measure func=file_check mask=may_read  fowner=0 fgroup=4 pcr=10
-#
-# measure func=file_check mask=may_write fowner=0 fgroup=4 pcr=11
-# measure func=file_check mask=may_write fowner=0 fgroup=4 pcr=10
-# audit!``
-# audit func=BPRM_CHECK mask=MAY_EXEC
-# audit func=FILE_CHECK mask=MAY_READ
-# execution log
-# measure func=BPRM_CHECK mask=MAY_EXEC pcr=12
-# measure func=BPRM_CHECK mask=MAY_EXEC pcr=11
-# measure func=BPRM_CHECK mask=MAY_EXEC pcr=10
-# reads to proc filesystem
-# measure func=FILE_CHECK mask=MAY_READ fsmagic=0x9fa0 pcr=10
-
-
 # Log all writes to avoid tampering
 measure func=FILE_CHECK mask=MAY_WRITE pcr=11
 # Allow root to manually measure a particular file
