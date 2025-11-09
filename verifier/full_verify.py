@@ -4,6 +4,7 @@ import hashlib
 import yaml
 from typing import Dict
 import struct
+import ecdsa
 
 class PCRVerifier:
     def __init__(self):
@@ -61,9 +62,24 @@ bootroot="shared"
 def main():
     verifier = PCRVerifier()
 
-    with open(f"{bootroot}/tpm2_pcr.yaml", "r") as signature_yaml:
-        signature = yaml.safe_load(signature_yaml)
-    print(f"{signature=}")
+    verifying_key = open(f"{bootroot}/signing_key.pem", "r").read()
+    verifying_key = ecdsa.VerifyingKey.from_pem(verifying_key)
+
+    print(f"{verifying_key.curve=}")
+
+    signature = open(f"{bootroot}/tpm2_pcr_signature", "rb").read()
+    print(f"{signature.hex()=}")
+
+    pcr_summary = open(f"{bootroot}/tpm2_pcr_message", "rb").read()
+    print(f"{pcr_summary.hex()=}")
+
+    pcr_data = open(f"{bootroot}/tpm2_pcr_data", "rb").read()
+    print(f"{pcr_data.hex()=}")
+
+    verifying_key.verify(signature, pcr_summary, hashfunc=hashlib.sha256, sigdecode=ecdsa.util.sigdecode_der)
+    # verifying_key.verify(signature, pcr_summary, sigdecode=ecdsa.util.sigdecode_der)
+
+    exit(0)
 
 
     # Ensure boot logs have valid hashes and such
@@ -80,7 +96,7 @@ def main():
         print(f"{event_data.hex()=}")
         # TODO finish parsing
 
-    # Ensure that
+    # Ensure that signature corresponds to data
 
     with open(f"{bootroot}/secure_boot.yaml", "r") as secure_boot_yaml:
         log_data = yaml.safe_load(secure_boot_yaml)
@@ -97,6 +113,49 @@ def main():
                 if algo in verifier.pcr_banks:
                     verifier.extend_pcr(pcr_index, algo, digest_entry['Digest'])
     
+    for i in range(1, 10):
+        calculated_pcr_value = verifier.get_pcr_value(i, "sha1")
+        signed_pcr_value = signature["pcrs"]["sha1"][i]
+        signed_pcr_value = signed_pcr_value.to_bytes(20)
+        signed_pcr_value = signed_pcr_value.hex()
+        # print(f"expected PCR{i}={signed_pcr_value}")
+        # print(f"actual   PCR{i}={calculated_pcr_value}")
+        assert calculated_pcr_value == signed_pcr_value
+    
+    print("PCR values match!")
+
+    # Validate Measurement Log
+    with open(f"{bootroot}/measurements", "rb") as measurements_file:
+        while True:
+            first_chunk = measurements_file.read(4)
+            if not first_chunk:
+                break
+            pcr_index = struct.unpack("<I", first_chunk)[0]
+            # print(f"{pcr_index=}")
+            template_data_hash = measurements_file.read(20)
+            # print(f"{template_data_hash.hex()=}")
+            template_name_length = struct.unpack("<I", measurements_file.read(4))[0]
+            # print(f"{template_name_length=}")
+            template_name = measurements_file.read(template_name_length)
+            # print(f"{template_name=}")
+            template_data_length = struct.unpack("<I", measurements_file.read(4))[0]
+            # print(f"{template_data_length=}")
+            template_data = measurements_file.read(template_data_length)
+            # print(f"{template_data=}")
+            hash_algorithm = hashlib.sha1()
+            hash_algorithm.update(template_data)
+            actual_hash = hash_algorithm.digest()
+            # print(f"{actual_hash.hex()=}")
+
+            # print(f"expected digest={template_data_hash}")
+            # print(f"actual   digest={actual_hash}")
+            assert template_data_hash == actual_hash or template_data_hash == b"\x00" * 20
+    
+    print("Measurement log hash values match!")
+
+
+
+
 
     # print(verifier.get_pcr_value(1, "sha1"))
     # print(verifier.get_pcr_value(2, "sha1"))

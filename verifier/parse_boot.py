@@ -1,1 +1,0 @@
-with open("shared/imalog.txt", "r") as boot_log:
