@@ -54,6 +54,7 @@ def launch_model():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+def launch_model_b():
     subprocess.Popen(
         [
             "./llama.cpp/build/bin/llama-server",

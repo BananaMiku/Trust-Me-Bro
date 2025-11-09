@@ -105,6 +105,7 @@ async def clientRequest(uuid: UUID):
     session = pendingRequests[userID]
     try:
         await asyncio.wait_for(session["Event"].wait(), timeout=6)
+
         return {"Verified": session["Verification"]}
     except asyncio.TimeoutError:
         err = "Verification Process Timed Out"
@@ -176,8 +177,12 @@ async def finished(req: FINISH, request: Request):
     cExecutable = os.path.join(baseDir, "stats_verify")
     # check if storage file need ../ in case of failure
     storageFile = os.path.join(baseDir, f"{model}_storage.csv")
+    # grace period
+    # sets async event & updates data
     if pd.read_csv(storageFile).size <= 10:
         log.info("Ingesting Data for Reference")
+        session["Event"].set()  # release clientRequest waiter
+        reservoir_sampling(model, gpuAvg, vramAvg, powerAvg)
         return {"Verification Result": session["Verification"]}
     
     log.info(f"C File Located at: {cFile}")
