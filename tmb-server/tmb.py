@@ -215,6 +215,7 @@ async def finished(req: FINISH):
     baseDir = os.path.dirname(os.path.abspath(__file__))
     cFile = os.path.join(baseDir, "stats_verify.c")
     cExecutable = os.path.join(baseDir, "stats_verify")
+    storageFile = os.path.join(baseDir, "gpt5-storage.csv")
     try:
         print("its doing a log")
         log.info("Compiling C File...")
@@ -262,7 +263,7 @@ async def finished(req: FINISH):
         session["Event"].set()  # release clientRequest waiter
         print(f"Verification Result: {session['Verification']}")
         return {"Verification Result": session["Verification"]}
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessErro as e:
         log.error(f"C Standard Error: {e.stderr}")
         return e
     except Exception as e:
