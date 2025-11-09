@@ -92,7 +92,6 @@ int main(int argcnt, char *argls[]) {
         powerParams.mean2, powerParams.std2, powerParams.weight2);
 
     // Perform inference on a sample power draw value
-    double powerData = 0.65;
     bool powerInference = bimodalPowerInference(powerData, powerParams);
     printf("Inference for Power Draw data %.3f → %s\n",
         powerData, powerInference ? "ACCEPTED" : "REJECTED");
