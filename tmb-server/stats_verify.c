@@ -84,7 +84,9 @@ int main(int argcnt, char *argls[]) {
 
     free(buffer.row);
     
-    return gpuInference + vramInference + powerInference >= 2 ? 0 : 1;
+    //return 
+    printf("\n%d", gpuInference + vramInference + powerInference >= 2 ? 0 : 1);
+    return 0;
 }
 
 /*

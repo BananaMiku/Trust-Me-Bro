@@ -97,5 +97,5 @@ def client():
             requests.post(
                 f"http://localhost:{get_port_no('tmb')}/clientRequest",
                 json={"userID": "id 1", "model": "gpt5"},
-            ),
+            ).content,
         )

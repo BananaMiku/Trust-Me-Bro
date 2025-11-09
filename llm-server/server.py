@@ -21,6 +21,7 @@ def submit(data: InternalRequest, request: Request):
 
     response_mode = request.app.state.response_mode
     response = handle_prompt_request(data, response_mode)
+    print(response.content)
     return response.json()
 
 

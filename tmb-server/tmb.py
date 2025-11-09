@@ -54,7 +54,8 @@ async def cache_and_average(userID, model, gpuUtilization, vramUsage, powerDraw)
 
 # could def be optimized lol
 def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
-    filePath = f"{model}_storage.csv"
+    baseDir = os.path.dirname(os.path.abspath(__file__))
+    filePath = os.path.join(baseDir, f"{model}_storage.csv")
 
     # one data as row
     row = pd.DataFrame(
@@ -153,14 +154,12 @@ async def finished(req: FINISH, request: Request):
     userID = req.userID
     log.info(f"{userID} Reached /finished")
     if userID not in pendingRequests:
-        print("THIS ONE HERE")
         raise HTTPException(status_code=400, detail="No Active Session")
 
     session = pendingRequests[userID]
     cache = session["Cache"]
 
     if not cache:
-        print("THIS OHTER ONE")
         raise HTTPException(status_code=400, detail="No Data Received")
 
     # find average
@@ -210,6 +209,7 @@ async def finished(req: FINISH, request: Request):
         return e
     # build input arguments
     arguments = [str(storageFile), str(gpuAvg), str(vramAvg), str(powerAvg)]
+    print(arguments)
 
     try:
         result = subprocess.run(
@@ -219,12 +219,12 @@ async def finished(req: FINISH, request: Request):
             check=True,
             cwd=baseDir,
         )
-        verification = result.returncode
+        verification = int(result.stdout[-1])
         # sums true + false, <= 1 means majority true
-        if verification <= 1:
-            session["Verification"] = True
-        else:
-            session["Verification"] = False
+        print("-ejkvdfhjkvndekrhvbekrjhbvdfkrjhvbjk")
+        print(verification)
+
+        session["Verification"] = not bool(verification)
 
         log.info(f"Setting Events for: {session['Event']}")
         session["Event"].set()  # release clientRequest waiter
