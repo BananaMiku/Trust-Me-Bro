@@ -109,6 +109,7 @@ class InputApp(App):
 
     @on(Input.Submitted)
     def on_submit(self, event: Input.Submitted) -> None:
+        self.app
         # gets the model
         select_widget = self.query_one(Select)
         model = select_widget.value
