@@ -81,4 +81,5 @@ def client():
             uuid="id 1",
             model="gpt5",
         )
-        send_prompt_request(to_send)
+        print(send_prompt_request(to_send))
+        print(requests.get(f"http://localhost:{get_port_no('tmb')}", json={"userID": "id 1", "model": "gpt5"}))

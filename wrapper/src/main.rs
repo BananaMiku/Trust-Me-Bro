@@ -88,6 +88,7 @@ async fn push_handler(
     let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no));
 
     //end when we get network
+    sleep(Duration::from_millis(1_500)).await;
     // let res = model_request.await;
     let _ = stop_tx.send(()); //kills nvidia thread
     let _ = nvidia_thread.await;
@@ -110,15 +111,26 @@ async fn push_handler(
 }
 
 async fn call_model(original: String, model_port: u16) -> Response<Incoming> {
-    let url = format!("http://127.0.0.1:{}", model_port);
-    let stream = TcpStream::connect(url.clone()).await.unwrap();
+    println!("a");
+    let url = format!("http://localhost:{}", model_port);
+    let stream = TcpStream::connect(format!("localhost:{}", model_port))
+        .await
+        .unwrap();
+    println!("a");
     let io = TokioIo::new(stream);
-    let (mut sender, _conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
+    let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
+    tokio::task::spawn(async move {
+        if let Err(err) = conn.await {
+            println!("Connection failed: {:?}", err);
+        }
+    });
+    println!("a");
 
     let authority = url.parse::<Uri>().unwrap().authority().unwrap().clone();
 
     // Create an HTTP request with an empty body and a HOST header
     let req = Request::builder()
+        .method("GET")
         .uri(url.clone())
         .header(hyper::header::HOST, authority.as_str())
         .body(http_body_util::Full::new(Bytes::from(original)))
@@ -163,40 +175,58 @@ async fn nvidia(
     smi.arg(format!("--query-compute-apps={}", pid));
     */
 
-    let url = "http://localhost:3833".parse::<Uri>().unwrap();
-    let stream = TcpStream::connect("localhost:3833").await.unwrap();
+    let url = "http://localhost:3823/metrics".parse::<Uri>().unwrap();
+    let url_finished = "http://localhost:3823/finished".parse::<Uri>().unwrap();
+    let stream = TcpStream::connect("localhost:3823").await.unwrap();
     let io = TokioIo::new(stream);
 
+    println!("b");
     let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
     tokio::task::spawn(async move {
         if let Err(err) = conn.await {
             println!("Connection failed: {:?}", err);
         }
     });
+    println!("b");
 
     loop {
         tokio::select! {
             _ = &mut stop_rx => {
                 println!("killing nvidia query");
+                let authority = url_finished.authority().unwrap().clone();
+                let req = Request::builder()
+                    .method("POST")
+                    .uri("/finished")
+                    .header(hyper::header::HOST, authority.as_str())
+                    .header(hyper::header::CONTENT_TYPE, "application/json")
+                    .body(http_body_util::Full::new(Bytes::from(format!("{{\"userID\":\"{}\"}}", uuid)))).unwrap();
+
+                let _res = sender.send_request(req).await.unwrap();
                 break;
             }
             _ = sleep(Duration::from_secs(1)) => {
+                println!("b");
                 // let smi_out = String::from_utf8(smi.output().expect("unable to execute nvidia_smi").stdout).unwrap();
                 let smi_out = "GPU-09dfe69f-a29c-c23f-35a4-c5b79af54d34, NVIDIA GeForce RTX 4080 SUPER, 1, 0, 642, 5.57, 35";
                 let items: Vec<&str> = smi_out.split(", ").collect();
 
-                let authority = "http://localhost:3833".parse::<Uri>().unwrap().authority().unwrap().clone();
-
-                let report = format!("{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}",
+                let authority = url.authority().unwrap().clone();
+                let report = format!("{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}}}",
                     items.get(2).unwrap(),
                     items.get(5).unwrap(),
                     items.get(6).unwrap(), uuid, model);
 
+                println!("{}", report);
+
                 // Create an HTTP request with an empty body and a HOST header
                 let req = Request::builder()
-                    .uri(url.clone())
+                    .method("POST")
+                    .uri("/metrics")
                     .header(hyper::header::HOST, authority.as_str())
+                    .header(hyper::header::CONTENT_TYPE, "application/json")
                     .body(http_body_util::Full::new(Bytes::from(report))).unwrap();
+
+                println!("{:?}", req);
 
                 // Await the response...
                 let res = sender.send_request(req).await.unwrap();

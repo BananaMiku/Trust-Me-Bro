@@ -11,9 +11,6 @@ app.state.port = get_port_no("load")
 
 @app.get("/submit_prompt")
 def submit(data: InternalRequest, background_tasks: BackgroundTasks, request: Request):
-    #asserts the request is valid
-    if data.model not in MODELS:
-        raise HTTPException(status_code=500, detail={})
 
     response_mode = request.app.state.response_mode
     return handle_prompt_request(data, response_mode)
