@@ -1,11 +1,13 @@
-from textual import on
-from textual.app import App, ComposeResult
-from textual.validation import Function, Number, ValidationResult, Validator
-from textual.widgets import Input, Label, Pretty, Select
-from textual.containers import VerticalScroll
+#!/bin/python
 import json
 import os
 import sys
+
+from textual import on
+from textual.app import App, ComposeResult
+from textual.containers import VerticalScroll
+from textual.validation import Function, Number, ValidationResult, Validator
+from textual.widgets import Input, Label, Pretty, Select
 
 from utils import (
     MODELS,
@@ -17,14 +19,14 @@ from utils import (
 )
 
 
-
 class Prompt(Label):
     def __init__(self, prompt: str, model: str) -> None:
         super().__init__(prompt)
         self.model = model
 
     def on_mount(self) -> None:
-        self.border_title = self.model;
+        self.border_title = self.model
+
 
 class Response(Label):
     def __init__(self, response: str, model: str, verified: bool) -> None:
@@ -33,7 +35,7 @@ class Response(Label):
         self.verified = verified
 
     def on_mount(self) -> None:
-        self.border_title = self.model;
+        self.border_title = self.model
         self.border_subtitle = f"verified: {self.verified}"
         if self.verified:
             self.add_class(f"-valid")
@@ -44,8 +46,7 @@ class InputApp(App):
         super().__init__()
         self.load_url = "http://127.0.0.1:{}/".format(get_port_no("load"))
         self.messages = []
-    
-    
+
     CSS = """
     Input.-valid {
         border: tall $success 60%;
@@ -98,9 +99,9 @@ class InputApp(App):
 
     def compose(self) -> ComposeResult:
         yield Label("Trust Me Bro")
-        yield Select.from_values(['a', 'b'], allow_blank=False)
+        yield Select.from_values(["a", "b"], allow_blank=False)
         yield VerticalScroll(
-                id="messages",
+            id="messages",
         )
         yield Input(
             placeholder="ask anything",
@@ -108,14 +109,14 @@ class InputApp(App):
 
     @on(Input.Submitted)
     def on_submit(self, event: Input.Submitted) -> None:
-        #gets the model
+        # gets the model
         select_widget = self.query_one(Select)
         model = select_widget.value
-    
+
         scroll = self.query_one("#messages", VerticalScroll)
         scroll.mount(Prompt(event.input.value, model))
 
-        #sends the request
+        # sends the request
         self.messages.append({"role": "user", "content": event.input.value})
         to_send = InternalRequest(
             original=f"{{'messages': {json.dumps(self.messages)}}}",
@@ -124,14 +125,14 @@ class InputApp(App):
         )
         res = send_prompt_request(to_send)
 
-
-        #adds the response to the context
+        # adds the response to the context
         self.messages.append(res)
-        #adds the response to the scroll
+        # adds the response to the scroll
         scroll.mount(Response(str(res), model, False))
-        #clears input 
+        # clears input
         event.input.value = ""
         scroll.scroll_end(animate=False)
+
 
 app = InputApp()
 
