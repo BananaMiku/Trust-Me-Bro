@@ -62,6 +62,21 @@ int main(int argcnt, char *argls[]) {
 
 
     // ------------------------------------------------------------
+    // VRAM SECTION
+    // ------------------------------------------------------------
+    // ------------------------------------------------------------
+    // VRAM USAGE SECTION
+    // ------------------------------------------------------------
+    printf("\n=== VRAM USAGE ANALYSIS ===\n");
+    betaParams vramParams = betaDistroVRAM(&buffer);
+    printf("VRAM Beta Parameters: α = %.6f, β = %.6f\n",
+           vramParams.alpha, vramParams.beta);
+
+    bool vramInference = betaDistroVRAMInference(vramData, vramParams);
+    printf("Inference for VRAM data %.3f → %s\n",
+           vramData, vramInference ? "ACCEPTED" : "REJECTED");
+
+    // ------------------------------------------------------------
     // POWER DRAW SECTION
     // ------------------------------------------------------------
     printf("\n=== POWER DRAW ANALYSIS ===\n");
@@ -81,34 +96,6 @@ int main(int argcnt, char *argls[]) {
     bool powerInference = bimodalPowerInference(powerData, powerParams);
     printf("Inference for Power Draw data %.3f → %s\n",
         powerData, powerInference ? "ACCEPTED" : "REJECTED");
-
-    // ------------------------------------------------------------
-    // VRAM SECTION
-    // ------------------------------------------------------------
-    // ------------------------------------------------------------
-    // VRAM USAGE SECTION
-    // ------------------------------------------------------------
-    printf("\n=== VRAM USAGE ANALYSIS ===\n");
-    betaParams vramParams = betaDistroVRAM(&buffer);
-    printf("VRAM Beta Parameters: α = %.6f, β = %.6f\n",
-           vramParams.alpha, vramParams.beta);
-
-    bool vramInference = betaDistroVRAMInference(vramData, vramParams);
-    printf("Inference for VRAM data %.3f → %s\n",
-           vramData, vramInference ? "ACCEPTED" : "REJECTED");
-
-    
-    // ------------------------------------------------------------
-    // POWER DRAW SECTION
-    // ------------------------------------------------------------
-    printf("\n=== POWER DRAW ANALYSIS ===\n");
-    betaParams powerParams = betaDistroPower(&buffer);
-    printf("Power Draw Beta Parameters: α = %.6f, β = %.6f\n",
-           powerParams.alpha, powerParams.beta);
-
-    bool powerInference = betaDistroPowerInference(powerData, powerParams);
-    printf("Inference for Power Draw data %.3f → %s\n",
-           powerData, powerInference ? "ACCEPTED" : "REJECTED");
 
     free(buffer.row);
     
