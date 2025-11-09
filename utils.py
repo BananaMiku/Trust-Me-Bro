@@ -33,8 +33,6 @@ class InternalRequest(BaseModel):
 def send_prompt_request(internal_request):
     to_send = internal_request_to_json(internal_request) 
     response = requests.get("{}{}".format(load_url, PROMPT_REQUEST_PATH), json=to_send)
-    print(response.status_code)
-    print(response.json())
     return response.json()
 
 def internal_request_to_json(internal_request):
@@ -48,11 +46,9 @@ def internal_request_to_json(internal_request):
 def send_internal_request(internal_request):
     to_send = internal_request_to_json(internal_request) 
     wrapper_url = "http://127.0.0.1:{}/".format(3822)
-    print(wrapper_url)
 
     headers = {"Content-Type": "application/json"}
     response = requests.get(wrapper_url, data=json.dumps(to_send), headers=headers)
-    print(f"---\n{response}\n---")
     
     return response
 
@@ -84,5 +80,6 @@ def client():
             uuid="id 1",
             model="gpt5",
         )
-        print(send_prompt_request(to_send))
-        print(requests.post(f"http://localhost:{get_port_no('tmb')}/clientRequest", json={"userID": "id 1", "model": "gpt5"}))
+        print("client sending initial request")
+        print("client received from server", send_prompt_request(to_send))
+        print("client received tmb response", requests.post(f"http://localhost:{get_port_no('tmb')}/clientRequest", json={"userID": "id 1", "model": "gpt5"}))

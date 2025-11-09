@@ -42,8 +42,6 @@ async fn main() {
         models.push((model, port));
     }
 
-    println!("Parsed models: {:?}", models);
-
     let state = AppState {
         models: Arc::new(models),
     };
@@ -54,7 +52,6 @@ async fn main() {
 
     let port: u16 = port_no.parse().expect("Invalid port number");
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    println!("Listening on http://{}", addr);
 
     // Run server
     axum::Server::bind(&addr)
@@ -105,8 +102,8 @@ async fn push_handler(
 }
 
 async fn call_model(original: String, model_port: u16) -> hyper::Response<Incoming> {
+    print!("calling model")
     let url = format!("http://localhost:{}/v1/chat/completion", model_port);
-    println!("{}", &url);
     let stream = TcpStream::connect(&url).await.unwrap();
     let io = TokioIo::new(stream);
     let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
@@ -127,10 +124,9 @@ async fn call_model(original: String, model_port: u16) -> hyper::Response<Incomi
         .unwrap();
 
     // Await the response...
-    println!("sending req");
     let res = sender.send_request(req).await.unwrap();
 
-    println!("Response status: {}", res.status());
+    println!("Model Response status: {}", res.status());
     res.into()
 }
 
@@ -169,9 +165,6 @@ async fn nvidia(
     let url_finished = "http://localhost:3823/finished".parse::<Uri>().unwrap();
 
     let mutex = Mutex::new(0);
-
-    println!("b");
-    println!("b");
 
     loop {
         tokio::select! {
@@ -251,7 +244,7 @@ async fn nvidia(
                 let report = format!("{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}}}",
                     gpu, ram, draw, uuid, model);
 
-                println!("{}", report);
+                println!("nvidia report: {}", report);
 
                 // Create an HTTP request with an empty body and a HOST header
                 let req = Request::builder()
@@ -261,15 +254,13 @@ async fn nvidia(
                     .header(hyper::header::CONTENT_TYPE, "application/json")
                     .body(http_body_util::Full::new(Bytes::from(report))).unwrap();
 
-                println!("{:?}", req);
-
                 // Await the response...
                 let mut lock = mutex.lock().await;
                 let res = sender.send_request(req).await.unwrap();
 
                 *lock += 1;
 
-                println!("Response status: {}", res.status());
+                println!("Nvidia Response status: {}", res.status());
             }
         }
     }

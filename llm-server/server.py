@@ -11,13 +11,12 @@ app.state.port = get_port_no("load")
 
 @app.get("/submit_prompt")
 def submit(data: InternalRequest, request: Request):
-    print(data)
-    print(request)
+    print("load server received:", data)
 
     response_mode = request.app.state.response_mode
     response = handle_prompt_request(data, response_mode)
-    print("response 2")
-    print(response.json())
+
+    print("load server received: ", response)
     return response.json()
 
 @app.get("/mode")
@@ -59,7 +58,6 @@ class InternalRequest(BaseModel):
     model: str
 
 def handle_prompt_request(internal_request: InternalRequest, response_mode: str):
-    print(internal_request)
     match response_mode:
         case "skimp":
             internal_request.model = "b"

@@ -32,4 +32,5 @@ if __name__ == "__main__":
             uuid="id 1",
             model="gpt5",
         )
-        print(send_prompt_request(to_send))
+        print("client sending request")
+        print("client received request", send_prompt_request(to_send))
