@@ -10,6 +10,7 @@ import re
 import tempfile
 import zipfile
 import shutil
+import string
 
 class PCRVerifier:
     def __init__(self):
@@ -74,6 +75,7 @@ def parse_ima_ng(data_bytes: bytes):
 proof_file_location = None
 rofiles = [b"/etc/audit/rules.d/audit.rules",
            b"/var/log/audit/audit.log"]
+HASH_SIZE = 32
 def main():
     parser = argparse.ArgumentParser(description="Verify a measurement archive produced by export_signature.sh")
     parser.add_argument("zipfile", help="Path to the measurements zip file")
@@ -95,8 +97,8 @@ def main():
         expected_pcr_values = []
         print("===PCR Report===")
         for i in range(13):
-            print(f"PCR{i:02d}: {pcr_data[20 * i: 20 * i + 20].hex()}")
-            expected_pcr_values.append(pcr_data[20 * i: 20 * i + 20])
+            print(f"PCR{i:02d}: {pcr_data[HASH_SIZE * i: HASH_SIZE * i + HASH_SIZE].hex()}")
+            expected_pcr_values.append(pcr_data[HASH_SIZE * i: HASH_SIZE * i + HASH_SIZE])
         print("===END PCR Report===")
 
         pcr_summary = open(f"{bootroot}/tpm2_pcr_message", "rb").read()
@@ -121,33 +123,37 @@ def main():
         # Ensure boot logs have valid hashes and such
         with open(f"{bootroot}/secure_boot", "rb") as secure_boot:
             pcr_index = struct.unpack("<I", secure_boot.read(4))[0]
-            # print(f"{pcr_index=}")
+            print(f"{pcr_index=}")
             event_type = struct.unpack("<I", secure_boot.read(4))[0]
-            # print(f"{event_type=}")
+            print(f"{event_type=}")
             initial_digest =  secure_boot.read(20)
-            # print(f"{initial_digest=}")
+            print(f"{initial_digest=}")
             event_size = struct.unpack("<I", secure_boot.read(4))[0]
-            # print(f"{event_size=}")
+            print(f"{event_size=}")
             event_data = secure_boot.read(event_size)
-            # print(f"{event_data.hex()=}")
+            print(f"{event_data.hex()=}")
+
+            # exit(0)
 
             secure = False
             while secure_boot.read(1):
+            # for i in range(10):
                 secure_boot.seek(-1, os.SEEK_CUR)
                 pcr_index = struct.unpack("<I", secure_boot.read(4))[0]
-                # print(f"{pcr_index=}")
+                print(f"{pcr_index=}")
                 event_type = struct.unpack("<I", secure_boot.read(4))[0]
-                # print(f"{event_type=}")
+                print(f"{event_type=}")
                 digest_count = struct.unpack("<I", secure_boot.read(4))[0]
-                # print(f"{digest_count=}")
-                digest_dump = secure_boot.read(172)
-                # print(f"{digest_dump.hex()=}")
+                print(f"{digest_count=}")
+                digest_dump = secure_boot.read(34)
+                print(f"{digest_dump.hex()=}")
                 event_size = struct.unpack("<I", secure_boot.read(4))[0]
-                # print(f"{event_size=}")
+                print(f"{event_size=}")
                 event_data = secure_boot.read(event_size)
                 # this is a terrible business logic but this is a hackathon
+                # print(event_data)
                 try:
-                    if re.search("/boot/vmlinuz.*lsm=integrity ima_policy=tcb", event_data.decode(encoding="ascii")):
+                    if re.findall("/boot/vmlinuz.*lsm=integrity ima_policy=tcb", event_data.decode(encoding="ascii")):
                         secure = True
                 except:
                     pass
@@ -157,6 +163,8 @@ def main():
         # Ensure that signature corresponds to data
 
         secure_boot_logs = open(f"{bootroot}/secure_boot.yaml", "rb")
+        secure_boot_logs = secure_boot_logs.read()
+        secure_boot_logs = ''.join([chr(x) for x in secure_boot_logs if chr(x) in string.printable])
         secure_boot_logs = yaml.safe_load(secure_boot_logs)
 
         # Process each event in the log
@@ -172,7 +180,7 @@ def main():
                         verifier.extend_pcr(pcr_index, algo, digest_entry['Digest'])
         
         for i in range(10):
-            calculated_pcr_value = verifier.get_pcr_value(i, "sha1")
+            calculated_pcr_value = verifier.get_pcr_value(i, "sha256")
             expected_pcr_value = expected_pcr_values[i]
             assert calculated_pcr_value == expected_pcr_value
         
@@ -193,14 +201,16 @@ def main():
                 template_data_length = struct.unpack("<I", measurements_file.read(4))[0]
                 template_data = measurements_file.read(template_data_length)
 
+                print(f"template_name")
+
                 if pcr_index in matches:
                     continue
 
                 if template_name == b"ima-ng":
                     file_data_hash, file_name = parse_ima_ng(template_data)
-                    # print(f"{file_data_hash.hex()=}")
-                    # print(f"{file_name=}")
-                    if file_data_hash != b"\x00" * 20:
+                    print(f"{file_data_hash.hex()=}")
+                    print(f"{file_name=}")
+                    if file_data_hash != b"\x00" * HASH_SIZE:
                         latest_file_hashes[file_name] = file_data_hash
                     assert not (pcr_index == 11 and file_name in rofiles), "Illegal edit detected!"
 
@@ -212,14 +222,14 @@ def main():
 
                 # print(f"expected digest={template_data_hash}")
                 # print(f"actual   digest={actual_hash}")
-                assert template_data_hash == actual_hash or template_data_hash == b"\x00" * 20
+                assert template_data_hash == actual_hash or template_data_hash == b"\x00" * HASH_SIZE, template_data_hash.hex()
 
                 # This is an important undocumented quirk I found when looking at 
-                actual_extension = b"\xff" * 20 if template_data_hash == b"\x00" * 20 else template_data_hash
-                verifier.extend_pcr(pcr_index, "sha1", actual_extension.hex())
+                actual_extension = b"\xff" * HASH_SIZE if template_data_hash == b"\x00" * HASH_SIZE else template_data_hash
+                verifier.extend_pcr(pcr_index, "sha256", actual_extension.hex())
         
                 for i in range(10, 13):
-                    calculated_pcr_value = verifier.get_pcr_value(i, "sha1")
+                    calculated_pcr_value = verifier.get_pcr_value(i, "sha256")
                     expected_pcr_value = expected_pcr_values[i]
                     if calculated_pcr_value == expected_pcr_value:
                         matches.add(i)
