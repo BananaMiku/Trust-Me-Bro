@@ -130,9 +130,10 @@ def main():
             # this is a terrible business logic but this is a hackathon
             try:
                 if re.search("/boot/vmlinuz.*lsm=integrity ima_policy=tcb", event_data.decode(encoding="ascii")):
-                    print(f"{event_data=}")
+                    secure = True
             except:
                 pass
+        assert secure, "secure boot logs did not indicate lsm=integrity ima_policy=tcb"
 
 
     # Ensure that signature corresponds to data
