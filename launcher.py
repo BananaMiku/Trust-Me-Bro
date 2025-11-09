@@ -50,7 +50,8 @@ def launch_model():
             "ggml-org/gemma-3-1b-it-GGUF",
             "--port",
             str(get_port_no("model")),
-        ]
+        ],
+        stdout=subprocess.DEVNULL,
     )
 
 
