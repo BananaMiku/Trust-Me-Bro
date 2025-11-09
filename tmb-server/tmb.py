@@ -1,50 +1,83 @@
-import subprocess
 import asyncio
-import structlog
 import os
 import random
+import shlex
+import subprocess
+
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+import structlog
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
+
 
 class UUID(BaseModel):
     userID: str
     model: str
 
-class SMIData(BaseModel): # TODO double check this
+
+class SMIData(BaseModel):
     gpuUtilization: float
     vramUsage: float
-    powerDraw : float
+    powerDraw: float
     uuid: UUID
+
 
 tmb = FastAPI()
 log = structlog.get_logger()
+# TODO with c, move the reservoir/buffer size to a global config file
 reservoir_size = 10
 
-pendingRequests: dict[str: (asyncio.Event, bool)] = {}
+pendingRequests: dict[str, dict] = {}
+
+
+# async def cache_and_average(userID, model, gpuUtilization, vramUsage, powerDraw):
+#     # data normalized from rust side
+#     session = pendingRequests[userID]
+#     async with session["Lock"]:
+#         session["Cache"].append(
+#             {
+#                 "Model": model,
+#                 "gpuUtilization": gpuUtilization,
+#                 "vramUsage": vramUsage,
+#                 "powerDraw": powerDraw,
+#             }
+#         )
+
+#         cache = session["Cache"]
+#         n = len(cache)
+#     return {
+#         "gpuAvg": sum(num["gpuUtilization"] for num in cache) / n,
+#         "vramAvg": sum(num["vramUsage"] for num in cache) / n,
+#         "powerAvg": sum(num["powerDraw"] for num in cache) / n,
+#     }
+
 
 # could def be optimized lol
 def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
-    filePath = f"{model}_storage.csv"
+    baseDir = os.path.dirname(os.path.abspath(__file__))
+    filePath = os.path.join(baseDir, f"{model}_storage.csv")
+    log.info(f"Reservoir Sampling at: {filePath}")
 
     # one data as row
-    row = pd.DataFrame([{
-        "model": model,
-        "gpuUtilization": gpuUtilization,
-        "vramUsage": vramUsage,
-        "powerDraw": powerDraw,
-    }])
+    row = pd.DataFrame(
+        [
+            {
+                "gpuUtilization": gpuUtilization,
+                "vramUsage": vramUsage,
+                "powerDraw": powerDraw,
+            }
+        ]
+    )
 
     # read storage file, create one if none exists
     if os.path.exists(filePath) and os.path.getsize(filePath) > 0:
         try:
-            df = pd.read_csv(filePath)
+            df = pd.read_csv(filePath, index_col=False)
         except pd.errors.EmptyDataError:
             # exists exists but is blank
             df = pd.DataFrame(columns=row.columns)
     else:
         df = pd.DataFrame(columns=row.columns)
-
 
     # reservoir sampling
     if len(df) >= reservoir_size:
@@ -56,18 +89,23 @@ def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
 
     df.to_csv(filePath, index=False)
 
+
 @tmb.post("/clientRequest")
 async def clientRequest(uuid: UUID):
-    # create event, await, die if timeout
-    # new request, create new event
-    id = uuid.userID
-    if id not in pendingRequests:
-        event = asyncio.Event()
-        pendingRequests[id] = (event, None)
+    userID = uuid.userID
+    log.info(f"{userID} Reached /clientRequest")
+    if userID not in pendingRequests:
+        log.info("/clientRequest Creating New Event")
+        pendingRequests[userID] = {
+            "Event": asyncio.Event(),
+            "Cache": [],
+            "Verification": None,
+        }
+
+    session = pendingRequests[userID]
     try:
-        await asyncio.wait_for(event.wait(), timeout=10)
-        _, verified = pendingRequests[id]
-        return verified
+        await asyncio.wait_for(session["Event"].wait(), timeout=6)
+        return {"Verified": session["Verification"]}
     except asyncio.TimeoutError:
         err = "Verification Process Timed Out"
         log.error(err)
@@ -77,53 +115,129 @@ async def clientRequest(uuid: UUID):
         log.error(err)
         raise HTTPException(status_code=500, detail=err)
     finally:
-        pendingRequests.pop(id)
+        pendingRequests.pop(userID, None)
+
 
 # incoming data from LLM server
 @tmb.post("/metrics")
 async def metrics(smiData: SMIData):
-    id = smiData.uuid.userID
-    if id not in pendingRequests:
-        # this technically should not happen?
-        return "IDK man what?"
-    
-    event, _ = pendingRequests[id]
-    # stats_verify is the compiled c code for stats verification
+    userID = smiData.uuid.userID
+    log.info(f"{userID} Reached /metrics")
+    if userID not in pendingRequests:
+        log.info("/metrics Creating New Event")
+        pendingRequests[userID] = {
+            "Event": asyncio.Event(),
+            "Cache": [],
+            "Verification": None,
+        }
+        # raise HTTPException(status_code=400, detail=f"No Active Session For {userID}")
+
+    session = pendingRequests[userID]
+    session["Cache"].append(
+        {
+            "model": smiData.uuid.model,
+            "gpuUtilization": smiData.gpuUtilization,
+            "vramUsage": smiData.vramUsage,
+            "powerDraw": smiData.powerDraw,
+        }
+    )
+
+    return {"message": "Receiving Data"}
+
+
+class FINISH(BaseModel):
+    userID: str
+
+
+# continuously ingest data at /metric endpoint until /finished is hit
+@tmb.post("/finished")
+async def finished(req: FINISH, request: Request):
+    userID = req.userID
+    log.info(f"{userID} Reached /finished")
+    if userID not in pendingRequests:
+        raise HTTPException(status_code=400, detail="No Active Session")
+
+    session = pendingRequests[userID]
+    cache = session["Cache"]
+
+    if not cache:
+        raise HTTPException(status_code=400, detail="No Data Received")
+
+    # find average
+    n = len(cache)
+    model = cache[0]["model"]
+    gpuAvg = sum(items["gpuUtilization"] for items in cache) / n
+    vramAvg = sum(items["vramUsage"] for items in cache) / n
+    powerAvg = sum(items["powerDraw"] for items in cache) / n
+
     # compile c file
     baseDir = os.path.dirname(os.path.abspath(__file__))
     cFile = os.path.join(baseDir, "stats_verify.c")
     cExecutable = os.path.join(baseDir, "stats_verify")
+    # check if storage file need ../ in case of failure
+    storageFile = os.path.join(baseDir, f"{model}_storage.csv")
+    if pd.read_csv(storageFile).size <= 10:
+        log.info("Ingesting Data for Reference")
+        return {"Verification Result": session["Verification"]}
+    
+    log.info(f"C File Located at: {cFile}")
+    log.info(f"C Executable Located at: {cExecutable}")
+    log.info(f"Storage File Located at: {storageFile}")
     try:
         log.info("Compiling C File...")
-        subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
-        
+        # build dependencies
+        deps = [
+            os.path.join(baseDir, "utils.c"),
+            os.path.join(baseDir, "gpu-utilization", "utils.c"),
+            os.path.join(baseDir, "powerdraw", "utils.c"),
+            os.path.join(baseDir, "vram", "utils.c"),
+        ]
+        # get GSL flags
+        try:
+            pkg_flags = subprocess.check_output(
+                ["pkg-config", "--cflags", "--libs", "gsl"], text=True
+            ).strip()
+            flags = shlex.split(pkg_flags)
+        except Exception as e:
+            log.error(f"Error. Try Install GSL on Your Machine: {e}")
+            return e
+        # build gcc command
+        cmd = ["gcc", cFile, *deps, "-o", cExecutable, *flags]
+        log.info(f"Python Subprocess Running Command: {cmd}")
+        subprocess.run(cmd, check=True)
+        # subprocess.run(["gcc", cFile, "-o", cExecutable], check=True)
     except subprocess.CalledProcessError as e:
         log.error(f"Error Compiling C File: {e}")
         return e
-    
-    # build arguments for c file
-    # convert to str for subprocess.run
-    reservoir_sampling(smiData.uuid.model, smiData.gpuUtilization, smiData.vramUsage, smiData.powerDraw)
-    
-    arguments = [
-        str(smiData.uuid.model + "_storage.csv")
-    ]
-    
-    # execute c file
+    # build input arguments
+    arguments = [str(storageFile), str(gpuAvg), str(vramAvg), str(powerAvg)]
+    print(arguments)
+
     try:
-        result = subprocess.run([cExecutable] + arguments, 
-                                capture_output=True,
-                                text=True, 
-                                check=True)
-        verification = result.stdout
-        # update
-        event, _ = pendingRequests[id]
-        pendingRequests[id] = event, verification
-        event.set()
-        return verification
+        result = subprocess.run(
+            [cExecutable] + arguments,
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=baseDir,
+        )
+        verification = int(result.stdout[-1])
+        # sums true + false, <= 1 means majority true
+        print("-ejkvdfhjkvndekrhvbekrjhbvdfkrjhvbjk")
+        print(verification)
+
+        session["Verification"] = not bool(verification)
+
+        log.info(f"Setting Events for: {session['Event']}")
+        session["Event"].set()  # release clientRequest waiter
+        return {"Verification Result": session["Verification"]}
     except subprocess.CalledProcessError as e:
-        log.error(f"C Standard Error: {e.stderr}")
+        log.error(f"STDOUT: {e.stdout}")
+        log.error(f"STDERR: {e.stderr}")
         return e
     except Exception as e:
         log.error(f"Error Executing C Binary: {e}")
         return e
+    finally:
+        # reservoir sampling at the end
+        reservoir_sampling(model, gpuAvg, vramAvg, powerAvg)

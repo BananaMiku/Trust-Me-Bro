@@ -1,4 +1,6 @@
 pydantic
+pandas
 requests
 uvicorn
 fastapi
+structlog

@@ -3,5 +3,30 @@ wrapper/target/*
 .venv
 __pycache__
 flake.lock
+
+# folder
+.pytest_cache
+.DS_Store
+.vscode
+trustmebro
+
+# buiild artifacts
+build/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# compiled binaries
+*.o
+*.a
+*.so
+*.exe
+*.out
+*.dll
+*.dylib
+stats_verify
+
 verifier/venv
 verifier/shared

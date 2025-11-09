@@ -1,10 +1,23 @@
+#ifndef STATS_VERIFY_H
+#define STATS_VERIFY_H
+
+// for each row of the csv file
 typedef struct {
-    int size;
-    char *data;
+    double gpuUtilization;
+    double vramUsage;
+    double powerDraw;
+} DataRow;
+
+// contains the entire CSV
+typedef struct {
+    int totalCapacity;
+    int currCapacity;
+    DataRow *row;
 } DataBuffer;
 
-void DataBufferInit(DataBuffer *self, int size);
-void DataBufferUpdate(DataBuffer *self);
 
-// methods to fit the data here
+void DataBufferInit(DataBuffer *self, int totalCapacity);
+void DataBufferRead(DataBuffer *self, const char *filePath);
+void DataBufferPrint(const DataBuffer *self);
 
+#endif

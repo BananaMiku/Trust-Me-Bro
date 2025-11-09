@@ -24,12 +24,7 @@ void sighandle(int sig) {
 
 char *query_nvidia_smi(int port) { 
   // find the PID of the process that is bound to the given TCP port.
-  // use `lsof` to query the local system for a process using that port. 
-  // If the model server spawns per-conversation worker PIDs or uses ephemeral worker processes, 
-  // it may not find the exact worker PID for a single conversation.
-  // most robust approach is to have the model server
-  // expose the worker PID (or include it in the response) so the wrapper can
-  // directly correlate a conversation UUID to a PID.
+  // runs 'nvidia-smi' to filters GPU process table entries for that specific PID
 
   char cmd[128];
   // Try to find any process listening on the port. -t prints only PIDs.
@@ -52,7 +47,37 @@ char *query_nvidia_smi(int port) {
   size_t len = strlen(pidbuf);
   if (len > 0 && pidbuf[len-1] == '\n') pidbuf[len-1] = '\0';
 
-  return strdup(pidbuf);
+  //================
+  //Use PID to query nvidia-smi for per-process GPU usage
+  char smi_cmd[256];
+  snprintf(smi_cmd, sizeof(smi_cmd),"nvidia-smi --query-compute-apps=pid,gpu_uuid,used_memory "
+            "--format=csv,noheader,nounits | grep '^%s,' 2>/dev/null", pidbuf);
+
+  FILE *smi_fp = popen(smi_cmd, "r");
+  if (!smi_fp) {
+      perror("Failed to run nvidia-smi");
+      return strdup(pidbuf); // Return PID as fallback
+  }
+
+  char *output = NULL;
+  size_t size = 0;
+  char buffer[256];
+
+  while (fgets(buffer, sizeof(buffer), smi_fp) != NULL) {
+      size_t chunk = strlen(buffer);
+      output = realloc(output, size + chunk + 1);
+      memcpy(output + size, buffer, chunk);
+      size += chunk;
+      output[size] = '\0';
+  }
+
+  pclose(smi_fp);
+
+  if (!output) {
+      output = strdup(pidbuf);
+  }
+
+  return output;
 }
 
 char* make_request(char* addr_s, int port, char *req, char* buffer) {
