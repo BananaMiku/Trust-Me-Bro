@@ -10,7 +10,9 @@ app.state.response_mode = "normal"
 app.state.port = get_port_no("load")
 
 @app.get("/submit_prompt")
-def submit(data: InternalRequest, background_tasks: BackgroundTasks, request: Request):
+def submit(data: InternalRequest, request: Request):
+    print(data)
+    print(request)
 
     response_mode = request.app.state.response_mode
     return handle_prompt_request(data, response_mode)

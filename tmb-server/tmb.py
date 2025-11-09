@@ -105,7 +105,12 @@ async def clientRequest(uuid: UUID):
 async def metrics(smiData: SMIData):
     userID = smiData.uuid.userID
     if userID not in pendingRequests:
-        raise HTTPException(status_code=400, detail=f"No Active Session For {userID}")
+        pendingRequests[userID] = {
+            "Event": asyncio.Event(),
+            "Cache": [],
+            "Verification": None,
+        }
+        # raise HTTPException(status_code=400, detail=f"No Active Session For {userID}")
 
     session = pendingRequests[userID]
     session["Cache"].append({
