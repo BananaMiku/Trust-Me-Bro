@@ -178,24 +178,24 @@ async fn nvidia(
 
     let url = "http://localhost:3823/metrics".parse::<Uri>().unwrap();
     let url_finished = "http://localhost:3823/finished".parse::<Uri>().unwrap();
-    let stream = TcpStream::connect("localhost:3823").await.unwrap();
-    let io = TokioIo::new(stream);
 
     let mutex = Mutex::new(0);
 
     println!("b");
-    let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
-    tokio::task::spawn(async move {
-        if let Err(err) = conn.await {
-            println!("Connection failed: {:?}", err);
-        }
-    });
     println!("b");
 
     loop {
         tokio::select! {
             _ = &mut stop_rx => {
                 println!("killing nvidia query");
+                let stream = TcpStream::connect("localhost:3823").await.unwrap();
+                let io = TokioIo::new(stream);
+                let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
+                tokio::task::spawn(async move {
+                    if let Err(err) = conn.await {
+                        println!("Connection failed: {:?}", err);
+                    }
+                });
                 let authority = url_finished.authority().unwrap().clone();
                 let req = Request::builder()
                     .method("POST")
@@ -205,6 +205,7 @@ async fn nvidia(
                     .body(http_body_util::Full::new(Bytes::from(format!("{{\"userID\": \"{}\"}}", uuid)))).unwrap();
 
                 let mut lock = mutex.lock().await;
+                sleep(Duration::from_millis(500)).await;
                 let _res = sender.send_request(req).await.unwrap();
 
                 *lock += 1;
@@ -217,6 +218,14 @@ async fn nvidia(
                 let smi_out = "GPU-09dfe69f-a29c-c23f-35a4-c5b79af54d34, NVIDIA GeForce RTX 4080 SUPER, 1, 0, 642, 5.57, 35";
                 let items: Vec<&str> = smi_out.split(", ").collect();
 
+                let stream = TcpStream::connect("localhost:3823").await.unwrap();
+                let io = TokioIo::new(stream);
+                let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
+                tokio::task::spawn(async move {
+                    if let Err(err) = conn.await {
+                        println!("Connection failed: {:?}", err);
+                    }
+                });
                 let authority = url.authority().unwrap().clone();
                 let report = format!("{{\"gpuUtilization\": {}, \"vramUsage\": {}, \"powerDraw\": {}, \"uuid\": {{\"userID\": \"{}\", \"model\": \"{}\"}}}}",
                     items.get(2).unwrap(),
