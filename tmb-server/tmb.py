@@ -30,32 +30,33 @@ reservoir_size = 10
 pendingRequests: dict[str, dict] = {}
 
 
-async def cache_and_average(userID, model, gpuUtilization, vramUsage, powerDraw):
-    # data normalized from rust side
-    session = pendingRequests[userID]
-    async with session["Lock"]:
-        session["Cache"].append(
-            {
-                "Model": model,
-                "gpuUtilization": gpuUtilization,
-                "vramUsage": vramUsage,
-                "powerDraw": powerDraw,
-            }
-        )
+# async def cache_and_average(userID, model, gpuUtilization, vramUsage, powerDraw):
+#     # data normalized from rust side
+#     session = pendingRequests[userID]
+#     async with session["Lock"]:
+#         session["Cache"].append(
+#             {
+#                 "Model": model,
+#                 "gpuUtilization": gpuUtilization,
+#                 "vramUsage": vramUsage,
+#                 "powerDraw": powerDraw,
+#             }
+#         )
 
-        cache = session["Cache"]
-        n = len(cache)
-    return {
-        "gpuAvg": sum(num["gpuUtilization"] for num in cache) / n,
-        "vramAvg": sum(num["vramUsage"] for num in cache) / n,
-        "powerAvg": sum(num["powerDraw"] for num in cache) / n,
-    }
+#         cache = session["Cache"]
+#         n = len(cache)
+#     return {
+#         "gpuAvg": sum(num["gpuUtilization"] for num in cache) / n,
+#         "vramAvg": sum(num["vramUsage"] for num in cache) / n,
+#         "powerAvg": sum(num["powerDraw"] for num in cache) / n,
+#     }
 
 
 # could def be optimized lol
 def reservoir_sampling(model, gpuUtilization, vramUsage, powerDraw):
     baseDir = os.path.dirname(os.path.abspath(__file__))
     filePath = os.path.join(baseDir, f"{model}_storage.csv")
+    log.info(f"Reservoir Sampling at: {filePath}")
 
     # one data as row
     row = pd.DataFrame(
@@ -169,15 +170,16 @@ async def finished(req: FINISH, request: Request):
     vramAvg = sum(items["vramUsage"] for items in cache) / n
     powerAvg = sum(items["powerDraw"] for items in cache) / n
 
-    # reservoir sampling
-    reservoir_sampling(model, gpuAvg, vramAvg, powerAvg)
-
     # compile c file
     baseDir = os.path.dirname(os.path.abspath(__file__))
     cFile = os.path.join(baseDir, "stats_verify.c")
     cExecutable = os.path.join(baseDir, "stats_verify")
     # check if storage file need ../ in case of failure
     storageFile = os.path.join(baseDir, f"{model}_storage.csv")
+    if pd.read_csv(storageFile).size <= 10:
+        log.info("Ingesting Data for Reference")
+        return {"Verification Result": session["Verification"]}
+    
     log.info(f"C File Located at: {cFile}")
     log.info(f"C Executable Located at: {cExecutable}")
     log.info(f"Storage File Located at: {storageFile}")
@@ -209,7 +211,6 @@ async def finished(req: FINISH, request: Request):
         return e
     # build input arguments
     arguments = [str(storageFile), str(gpuAvg), str(vramAvg), str(powerAvg)]
-    print(arguments)
 
     try:
         result = subprocess.run(
@@ -236,3 +237,6 @@ async def finished(req: FINISH, request: Request):
     except Exception as e:
         log.error(f"Error Executing C Binary: {e}")
         return e
+    finally:
+        # reservoir sampling at the end
+        reservoir_sampling(model, gpuAvg, vramAvg, powerAvg)
