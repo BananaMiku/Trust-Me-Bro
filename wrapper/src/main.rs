@@ -2,15 +2,12 @@ use axum::{
     Error, Router,
     extract::{Json as ExtractJson, State},
     http::header,
-    response::{IntoResponse, Json},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
 };
 use http_body_util::BodyExt;
+use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Uri};
-use hyper::{
-    Response,
-    body::{Bytes, Incoming},
-};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -76,7 +73,7 @@ struct PushData {
 async fn push_handler(
     State(state): State<AppState>,
     ExtractJson(payload): ExtractJson<PushData>,
-) -> impl IntoResponse {
+) -> Response<String> {
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let mut port_no = 0;
     for (model, port) in state.models.iter() {
@@ -85,39 +82,32 @@ async fn push_handler(
         }
     }
 
-    // let model_request = tokio::spawn(call_model(payload.original, port_no));
-    let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no));
+    let model_request = tokio::spawn(call_model(payload.original, port_no));
+    // let nvidia_thread = tokio::spawn(nvidia(stop_rx, payload.uuid, payload.model, port_no));
 
     //end when we get network
     sleep(Duration::from_millis(1_500)).await;
-    // let res = model_request.await;
+    let res = model_request.await;
     let _ = stop_tx.send(()); //kills nvidia thread
-    let _ = nvidia_thread.await;
+    // let _ = nvidia_thread.await;
 
-    // if let Ok(res) = res {
-    //     return (
-    //         [(header::CONTENT_TYPE, "application/json")],
-    //         format!("{:?}", res.into_body()),
-    //     );
-    // }
-    // (
-    //     [(header::CONTENT_TYPE, "application/json")],
-    //     String::from("{\"message\": \"died\"}"),
-    // )
-
-    (
-        [(header::CONTENT_TYPE, "application/json")],
-        "{\"messages\": [{\"role\": \"user\", \"content\": \"hi\"}, {\"role\": \"assistant\", \"content\": \"hi\"}]}",
-    )
+    if let Ok(res) = res {
+        axum::response::Response::builder()
+            .header("Content-Type", "application/json")
+            .body(format!("{:?}", res.into_body()))
+            .unwrap()
+    } else {
+        axum::response::Response::builder()
+            .status(500)
+            .body(String::from(""))
+            .unwrap()
+    }
 }
 
-async fn call_model(original: String, model_port: u16) -> Response<Incoming> {
-    println!("a");
-    let url = format!("http://localhost:{}", model_port);
-    let stream = TcpStream::connect(format!("localhost:{}", model_port))
-        .await
-        .unwrap();
-    println!("a");
+async fn call_model(original: String, model_port: u16) -> hyper::Response<Incoming> {
+    let url = format!("http://localhost:{}/v1/chat/completion", model_port);
+    println!("{}", &url);
+    let stream = TcpStream::connect(&url).await.unwrap();
     let io = TokioIo::new(stream);
     let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
     tokio::task::spawn(async move {
@@ -125,7 +115,6 @@ async fn call_model(original: String, model_port: u16) -> Response<Incoming> {
             println!("Connection failed: {:?}", err);
         }
     });
-    println!("a");
 
     let authority = url.parse::<Uri>().unwrap().authority().unwrap().clone();
 
@@ -142,7 +131,7 @@ async fn call_model(original: String, model_port: u16) -> Response<Incoming> {
     let res = sender.send_request(req).await.unwrap();
 
     println!("Response status: {}", res.status());
-    res
+    res.into()
 }
 
 async fn nvidia(
