@@ -4,22 +4,40 @@
 # sudo dd if=<file name> of=/dev/null count=0 status=none
 
 usage() {
-    echo "Usage: $0 -t TARGET_FOLDER"
+    echo "Usage: $0 -o OUTPUT_ZIP"
     echo
     echo "Options:"
-    echo "  -t TARGET_FOLDER  Directory where all exported files will be saved (required)"
-    echo "  -h               Display this help message"
+    echo "  -o OUTPUT_ZIP    Path where the output zip file will be saved (required)"
+    echo "  -h              Display this help message"
     exit 1
 }
 
+cleanup() {
+    # Remove temporary directory if it exists
+    if [ -n "$TARGET_FOLDER" ] && [ -d "$TARGET_FOLDER" ]; then
+        rm -rf "$TARGET_FOLDER"
+    fi
+}
+
 EK_HANDLE=./primary.ctx
-TARGET_FOLDER=""
+
+# Create temporary directory
+TARGET_FOLDER=$(mktemp -d)
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to create temporary directory" >&2
+    exit 1
+fi
+
+# Set up cleanup on script exit now that TARGET_FOLDER exists
+trap cleanup EXIT
+
+OUTPUT_ZIP=""
 
 # Parse command line options
-while getopts "t:h" opt; do
+while getopts "o:h" opt; do
     case $opt in
-        t)
-            TARGET_FOLDER="$OPTARG"
+        o)
+            OUTPUT_ZIP="$OPTARG"
             ;;
         h)
             usage
@@ -35,15 +53,21 @@ while getopts "t:h" opt; do
     esac
 done
 
-# Check if TARGET_FOLDER is provided
-if [ -z "$TARGET_FOLDER" ]; then
-    echo "Error: TARGET_FOLDER (-t) is required" >&2
+# Check if OUTPUT_ZIP is provided
+if [ -z "$OUTPUT_ZIP" ]; then
+    echo "Error: OUTPUT_ZIP (-o) is required" >&2
     usage
 fi
 
-# Check if TARGET_FOLDER exists and is writable
-if [ ! -d "$TARGET_FOLDER" ]; then
-    echo "Error: $TARGET_FOLDER is not a directory" >&2
+# Check if the directory for OUTPUT_ZIP exists and is writable
+OUTPUT_DIR=$(dirname "$OUTPUT_ZIP")
+if [ ! -d "$OUTPUT_DIR" ]; then
+    echo "Error: Directory for output zip ($OUTPUT_DIR) does not exist" >&2
+    exit 1
+fi
+
+if [ ! -w "$OUTPUT_DIR" ]; then
+    echo "Error: Directory for output zip ($OUTPUT_DIR) is not writable" >&2
     exit 1
 fi
 
@@ -70,3 +94,16 @@ sudo tpm2_quote -c $EK_HANDLE -l sha1:0,1,2,3,4,5,6,7,8,9,10,11,12 -f plain --pc
 sudo cat /sys/kernel/security/integrity/ima/ascii_runtime_measurements_sha1 | sudo tee $TARGET_FOLDER/measurements_ascii.txt
 sudo cat /sys/kernel/security/integrity/ima/binary_runtime_measurements_sha1 | sudo tee $TARGET_FOLDER/measurements
 
+# Convert OUTPUT_ZIP to absolute path if it isn't already
+if [[ "$OUTPUT_ZIP" != /* ]]; then
+    OUTPUT_ZIP="$(pwd)/$OUTPUT_ZIP"
+fi
+
+# Create zip archive of all collected data
+cd "$TARGET_FOLDER" && sudo zip -r "$OUTPUT_ZIP" ./*
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to create zip archive" >&2
+    exit 1
+fi
+
+echo "Successfully created measurement archive: $OUTPUT_ZIP"
